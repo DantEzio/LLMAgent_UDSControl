@@ -36,13 +36,13 @@ EVENT_FIXES = {
 
 
 def extract_and_save(folder_name, start_dt_str, end_dt_str, desc, chaohu_df):
-    """从长序列降雨中截取指定时间窗并保存为场景数据文件。
+    """Extract a given time window from a long rainfall series and save it as a scenario data file.
 
     Args:
-        folder_name: 目标场景文件夹名。
-        start_dt_str, end_dt_str: 截取窗口的起止时间字符串。
-        desc: 事件描述 (写入 README)。
-        chaohu_df: 完整的降雨数据表。
+        folder_name: Target scenario folder name.
+        start_dt_str, end_dt_str: Start/end time strings of the window.
+        desc: Event description (written into README).
+        chaohu_df: Full rainfall data table.
     """
     start_dt = pd.Timestamp(start_dt_str)
     end_dt = pd.Timestamp(end_dt_str)
@@ -111,7 +111,7 @@ def extract_and_save(folder_name, start_dt_str, end_dt_str, desc, chaohu_df):
 
 
 def main():
-    """命令行入口: 修复 Event_01 / Event_02 的降雨与时间轴错位。
+    """CLI entry point: fix the rainfall / time axis misalignment of Event_01 / Event_02.
     """
     print("=" * 60)
     print("Fix Event_01 & Event_02 rainfall time alignment")

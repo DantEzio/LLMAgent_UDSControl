@@ -2,16 +2,16 @@
 """
 results_reasoning.py
 ====================
-读取 4 个 BCAgent 变体 (DeepSeek / GLM / Kimi / MiniMax) 的 .npy 结果文件,
-从中提取每个时间步 LLM 的 reasoning (mode_a_full_analysis trace), 整理成 md 文档,
-保存到 Results/Reasoning/ 目录。
+Reads the .npy result files of the 4 BCAgent variants (DeepSeek / GLM / Kimi / MiniMax),
+extracts the LLM reasoning at each time step (mode_a_full_analysis traces), organizes them
+into Markdown documents and saves them to Results/Reasoning/.
 
-每个变体生成一个 md, 内部组织:
-  - 概述 (变体名/事件数/LLM调用总数/token汇总)
-  - 汇总表 (序号/事件/步号/模拟时间/预警类型/预估降雨/调整动作/Reasoning/耗时/Tokens)
-  - 详细调用记录 (每条 trace 一节, 含输入摘要/Reasoning/调整动作/完整Prompt/完整Response)
+One md per variant, structured as:
+  - Overview (variant name / number of events / total LLM calls / token totals)
+  - Summary table (index / event / step / simulation time / warning type / estimated rainfall / adjusted action / Reasoning / latency / Tokens)
+  - Detailed call records (one section per trace, with input summary / Reasoning / adjusted action / full Prompt / full Response)
 
-不使用 try-except (遵循项目规范)。
+No try-except is used (project convention).
 """
 
 import os
@@ -19,11 +19,11 @@ import glob
 import numpy as np
 
 # ============================================================
-# 配置
+# Configuration
 # ============================================================
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# 4 个 BCAgent 变体: (变体显示名, results 目录绝对路径)
+# 4 BCAgent variants: (display name, absolute path to results directory)
 VARIANTS = [
     ("DeepSeek", os.path.join(PROJECT_ROOT, "DRL-control", "step3-BCAgent-control", "results")),
     ("GLM",      os.path.join(PROJECT_ROOT, "DRL-control", "step3-BCAgent-control-GLM", "results")),
@@ -33,23 +33,23 @@ VARIANTS = [
 
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "Results", "Reasoning")
 
-# 表格中 reasoning 不截断, 显示完整内容 (换行替换为空格以保持表格结构)
+# Do not truncate reasoning in tables; show full text (replace newlines with spaces to keep table structure)
 REASONING_TRUNCATE = None
 
 
 # ============================================================
-# 工具函数
+# Utility functions
 # ============================================================
 def _safe_get(d, key, default=None):
-    """字典安全取值 (不用 try-except)。"""
+    """Safe dictionary lookup (no try-except)."""
     if not isinstance(d, dict):
         return default
     return d.get(key, default)
 
 
 def _truncate(text, n=REASONING_TRUNCATE):
-    """格式化文本用于表格单元格 (换行替换为空格, 管道符转义)。
-    n=None 时不截断, 显示完整内容。
+    """Format text for a table cell (replace newlines with spaces, escape pipe characters).
+    When n=None, do not truncate; show the full content.
     """
     if text is None:
         return ""
@@ -60,7 +60,7 @@ def _truncate(text, n=REASONING_TRUNCATE):
 
 
 def _fmt_action(act):
-    """格式化动作列表为紧凑字符串。"""
+    """Format an action list as a compact string."""
     if act is None:
         return "-"
     if isinstance(act, (list, tuple, np.ndarray)):
@@ -69,7 +69,7 @@ def _fmt_action(act):
 
 
 def _fmt_rainfall(rain):
-    """格式化降雨估计。"""
+    """Format the rainfall estimate."""
     if not isinstance(rain, dict):
         return "-"
     total = _safe_get(rain, "total_mm", None)
@@ -86,11 +86,11 @@ def _fmt_rainfall(rain):
 
 
 def _fmt_warning(trace):
-    """格式化预警类型 (从 warning_log 注入的 _warning_level/_warning_status)。"""
+    """Format the warning type (from _warning_level/_warning_status injected by warning_log)."""
     level = _safe_get(trace, "_warning_level", "")
     status = _safe_get(trace, "_warning_status", "")
     if not level and not status:
-        # 回退到 event_info
+        # Fall back to event_info
         event_info = _safe_get(trace, "event_info")
         if isinstance(event_info, dict):
             wt = _safe_get(event_info, "warning_type", "")
@@ -102,7 +102,7 @@ def _fmt_warning(trace):
 
 
 def _fmt_realtime_state(state):
-    """格式化实时状态摘要 (节点水深最大值/管段流量最大值 + 节点数)。"""
+    """Format the realtime state summary (max node depth / max link flow + node count)."""
     if not isinstance(state, dict):
         return "-"
     parts = []
@@ -123,7 +123,7 @@ def _fmt_realtime_state(state):
 
 
 def _fmt_tokens(prompt_tokens, completion_tokens):
-    """格式化 token 用量。"""
+    """Format token usage."""
     p = prompt_tokens or 0
     c = completion_tokens or 0
     if p == 0 and c == 0:
@@ -132,7 +132,7 @@ def _fmt_tokens(prompt_tokens, completion_tokens):
 
 
 def _extract_event_name(npy_path):
-    """从文件路径提取事件名 (bc_agent_results_{name}.npy -> {name})。"""
+    """Extract the event name from a file path (bc_agent_results_{name}.npy -> {name})."""
     base = os.path.basename(npy_path)
     prefix = "bc_agent_results_"
     if base.startswith(prefix) and base.endswith(".npy"):
@@ -141,9 +141,9 @@ def _extract_event_name(npy_path):
 
 
 def _load_traces(npy_path):
-    """加载 npy, 返回 (event_name, list_of_mode_a_traces)。
-    同时从 warning_log 按 step 匹配 full_analysis_complete 获取预警级别,
-    写入 trace 的 _warning_level / _warning_status 字段。
+    """Load an npy file and return (event_name, list_of_mode_a_traces).
+    Also match full_analysis_complete records from warning_log by step to obtain the warning level,
+    and write it into the _warning_level / _warning_status fields of the traces.
     """
     event_name = _extract_event_name(npy_path)
     data = np.load(npy_path, allow_pickle=True)
@@ -154,7 +154,7 @@ def _load_traces(npy_path):
     if not isinstance(full_trace, list):
         return event_name, []
 
-    # 构建 step -> (level, status) 映射 (来自 warning_log 的 full_analysis_complete)
+    # Build the step -> (level, status) mapping (from full_analysis_complete in warning_log)
     warning_map = {}
     warning_log = _safe_get(result, "warning_log", [])
     if isinstance(warning_log, list):
@@ -169,7 +169,7 @@ def _load_traces(npy_path):
                         _safe_get(w, "status", ""),
                     )
 
-    # 只保留 mode_a_full_analysis (真正调用 LLM API 的记录)
+    # Keep only mode_a_full_analysis (records that made a real LLM API call)
     mode_a_traces = []
     for t in full_trace:
         if not isinstance(t, dict):
@@ -178,7 +178,7 @@ def _load_traces(npy_path):
             continue
         step = _safe_get(t, "step")
         level, status = warning_map.get(step, ("", ""))
-        # 注入预警级别 (不修改原 dict, 用新 key)
+        # Inject the warning level (do not modify the original dict; use a new key)
         t["_warning_level"] = level
         t["_warning_status"] = status
         mode_a_traces.append(t)
@@ -186,16 +186,16 @@ def _load_traces(npy_path):
 
 
 def _format_realtime_state(state):
-    """已弃用, 使用 _fmt_realtime_state。保留为别名以兼容。"""
+    """Deprecated; use _fmt_realtime_state. Kept as an alias for compatibility."""
     return _fmt_realtime_state(state)
 
 
 # ============================================================
-# md 生成
+# Markdown generation
 # ============================================================
 def generate_md(variant_name, all_event_traces):
     """
-    生成单个变体的 md 内容。
+    Generate the md content for a single variant.
     all_event_traces: [(event_name, [trace, ...]), ...]
     """
     lines = []
@@ -209,7 +209,7 @@ def generate_md(variant_name, all_event_traces):
             total_completion_tokens += _safe_get(tr, "completion_tokens", 0) or 0
             total_time_ms += _safe_get(tr, "api_call_time_ms", 0.0) or 0.0
 
-    # ---- 标题 + 概述 ----
+    # ---- Title + overview ----
     lines.append(f"# BCAgent LLM Reasoning - {variant_name}")
     lines.append("")
     lines.append("## 概述")
@@ -227,7 +227,7 @@ def generate_md(variant_name, all_event_traces):
         lines.append("无 LLM 调用记录。")
         return "\n".join(lines)
 
-    # ---- 汇总表 ----
+    # ---- Summary table ----
     lines.append("## 汇总表")
     lines.append("")
     lines.append("| 序号 | 事件 | 步号 | 模拟时间 | 预警类型 | 预估降雨 | 调整动作 | Reasoning | 耗时(ms) | Tokens(P/C) |")
@@ -252,7 +252,7 @@ def generate_md(variant_name, all_event_traces):
             )
     lines.append("")
 
-    # ---- 详细调用记录 ----
+    # ---- Detailed call records ----
     lines.append("## 详细调用记录")
     lines.append("")
     idx = 0
@@ -312,10 +312,10 @@ def generate_md(variant_name, all_event_traces):
 
 
 # ============================================================
-# 主流程
+# Main workflow
 # ============================================================
 def main():
-    """命令行入口: 为每个 LLM 变体生成推理链 (reasoning) 报告到 Results/Reasoning/。
+    """CLI entry point: generate reasoning-chain reports for each LLM variant in Results/Reasoning/.
     """
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     print(f"[results_reasoning] 输出目录: {OUTPUT_DIR}")

@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-两张 5行2列 合并图 (Event 1-10):
+Two 5x2 combined figures (Event 1-10):
 
-  图1: 全部 Flooding and CSO 结果 (每子图一场降雨, FC 曲线 + 降雨柱)
-  图2: 全部控制曲线结果 (每子图一场降雨, 开启泵总数量阶梯曲线 + 降雨柱)
+  Figure 1: all Flooding and CSO results (one event per subplot, FC curve + rainfall bars)
+  Figure 2: all control curves (one event per subplot, stair curve of total pumps on + rainfall bars)
 
-数据源 / 图例 (不变):
-  - BC              #8b0000   (step1-BC-control)
-  - Limited MPC     #b8860b   (MPC, step2-MPC-control-usefull)
-  - AgenticAI-Control #2e7d32  (Agent, step3-BCAgent-control, DeepSeek)
-  - Rainfall         steelblue/navy (alpha 0.4)
+Data sources / legend (unchanged):
+  - BC                  #8b0000   (step1-BC-control)
+  - Limited MPC         #b8860b   (MPC, step2-MPC-control-usefull)
+  - AgenticAI-Control   #2e7d32  (Agent, step3-BCAgent-control, DeepSeek)
+  - Rainfall            steelblue/navy (alpha 0.4)
 
-输出:
-  - Results/FigPerformanceAction/FC_E1-10.png     (图1)
-  - Results/FigPerformanceAction/Action_E1-10.png (图2)
+Outputs:
+  - Results/FigPerformanceAction/FC_E1-10.png     (Figure 1)
+  - Results/FigPerformanceAction/Action_E1-10.png (Figure 2)
 
-用法:
+Usage:
     python results_FC_Action_per_event_S11.py
 """
 
@@ -37,7 +37,7 @@ import matplotlib.ticker as mticker
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-# 从统一配置导入时间参数
+# Import time parameters from the shared configuration
 _drl_control_root = os.path.join(_sys_parent, 'DRL-control')
 if _drl_control_root not in sys.path:
     sys.path.insert(0, _drl_control_root)
@@ -53,24 +53,24 @@ config = {
 rcParams.update(config)
 
 # ============================================================
-# 颜色 (与 results_FC_full.py ccf / results_Action_total.py COLORS 一致)
+# Colors (same as results_FC_full.py ccf / results_Action_total.py COLORS)
 # ============================================================
 ccf = {
-    'BC':         "#8b0000",   # 深红
-    'MPC':        "#b8860b",   # 暗金 (perfect 预测)
-    'Agent':      "#2e7d32",   # 深绿 (AgenticAI-Control, DeepSeek)
+    'BC':         "#8b0000",   # Dark red
+    'MPC':        "#b8860b",   # Dark gold (perfect forecast)
+    'Agent':      "#2e7d32",   # Dark green (AgenticAI-Control, DeepSeek)
 }
 
-# 线型 (BC 实线, 其余两个控制方法虚线) —— 两列统一, 全图单图例
+# Line styles (BC solid, other two methods dashed) - uniform across both columns, single figure legend
 FC_LINESTYLES  = {'BC': '-', 'MPC': '--', 'Agent': '--'}
 FC_ALPHA        = {'BC': 0.4, 'MPC': 0.7, 'Agent': 0.6}
 
 ACT_LINESTYLES = {'BC': '-', 'MPC': '--', 'Agent': '--'}
 
-# 泵数量 (7台, 二进制 0/1 -> 总和 0~7)
+# Pump count (7 units, binary 0/1 -> sum 0~7)
 NUM_PUMPS = 7
 
-# 方法结果路径配置: 标签 -> (目录, 结果前缀, action 字段名)
+# Method result paths: label -> (directory, result prefix, action field name)
 METHOD_PATHS = {
     'BC':    ('step1-BC-control',       'bc_results_',       'action'),
     'Agent': ('step3-BCAgent-control',  'bc_agent_results_', 'adjusted_actions'),
@@ -78,7 +78,7 @@ METHOD_PATHS = {
 }
 
 # ============================================================
-# 1. 发现场景 (取 Event 1-10)
+# 1. Discover scenarios (take Event 1-10)
 # ============================================================
 project_root = _sys_parent
 scenarios_dir = os.path.join(project_root, 'Scenarios', 'NMC_Events_2015_2025')
@@ -97,7 +97,7 @@ for f in bc_scenario_files:
     if name in nmc_scenario_names:
         scenario_names_all.append(name)
 
-# 取前 10 场 (Event 1-10)
+# Take the first 10 events (Event 1-10)
 N_EVENTS = 10
 scenario_names = scenario_names_all[:N_EVENTS]
 print(f"共选取 {len(scenario_names)} 场降雨 (Event 1-{N_EVENTS}):")
@@ -105,7 +105,7 @@ for s in scenario_names:
     print(f"  {s}")
 
 # ============================================================
-# 2. 加载 sim_start 与降雨数据 (与 results_FC_full.py 一致)
+# 2. Load sim_start and rainfall data (same as results_FC_full.py)
 # ============================================================
 scenario_sim_start = {}
 scenario_rain_raw = {}   # {name: (times_list, mm_per_hr_array)}
@@ -138,7 +138,7 @@ for folder_name in scenario_names:
     scenario_rain_raw[folder_name] = ([], np.array([]))
 
 # ============================================================
-# 3. 加载 BC / Agent / MPC 结果 (含 flooding/CSO 与 action)
+# 3. Load BC / Agent / MPC results (including flooding/CSO and action)
 # ============================================================
 results = {}   # {method_label: {scenario_name: result_dict}}
 for method_label, (dir_name, file_prefix, _action_key) in METHOD_PATHS.items():
@@ -152,23 +152,23 @@ for method_label, (dir_name, file_prefix, _action_key) in METHOD_PATHS.items():
             print(f"  警告: 未找到 {method_label} 结果: {m_path}")
 
 # ============================================================
-# 4. 绘制两张 5行2列 组合图 (Event 1-10):
-#    图1: 全部 Flooding and CSO 结果;  图2: 全部控制曲线结果
-#    数据源与图例不变
+# 4. Draw two 5x2 combined figures (Event 1-10):
+#    Figure 1: all Flooding and CSO results; Figure 2: all control curves
+#    Data sources and legend are unchanged
 # ============================================================
 print("\n生成两张 5x2 组合图 (图1: Flooding & CSO, 图2: 控制曲线), Event 1-10...")
 
-dt_delta = datetime.timedelta(minutes=INTERVAL_MIN)  # 5 分钟
+dt_delta = datetime.timedelta(minutes=INTERVAL_MIN)  # 5 minutes
 
 
 def _draw_rain(ax, rain_times, rain_vals):
-    """降雨柱状图 (右轴倒置), 与 results_FC_full.py 一致 (max*1.45)。"""
+    """Rainfall bars (inverted right axis), same as results_FC_full.py (max*1.45)."""
     ax_rain = ax.twinx()
     ax_rain.set_zorder(0)
     ax.set_zorder(1)
     ax.patch.set_visible(False)
     if len(rain_vals) > 0:
-        bar_width = 1 / 24  # 1 小时 (以天为单位)
+        bar_width = 1 / 24  # 1 hour (in days)
         ax_rain.bar(rain_times, rain_vals, width=bar_width, color='steelblue',
                     edgecolor='navy', linewidth=0.3, alpha=0.4, zorder=1)
         ax_rain.set_ylabel('Rainfall intensity (mm/h)', fontsize=12, color='black')
@@ -180,25 +180,25 @@ def _draw_rain(ax, rain_times, rain_vals):
     return ax_rain
 
 
-# 输出目录
+# Output directory
 fig_dir = os.path.join(project_root, 'Results', 'FigPerformanceAction')
 os.makedirs(fig_dir, exist_ok=True)
 
-# 仅选取 Event 1-10 (scenario_names_all 第 1~10 个, 1-indexed)
+# Select only Event 1-10 (entries 1~10 of scenario_names_all, 1-indexed)
 event_start = 1
 event_end = 10
 selected_names = scenario_names_all[event_start - 1:event_end]
 n_events = len(selected_names)
-n_rows = (n_events + 1) // 2   # 5 行
+n_rows = (n_events + 1) // 2   # 5 rows
 n_cols = 2
 
 
 def _draw_fc_subplot(ax, name, event_no):
-    """在一个子图上绘制某事件的 FC (Flooding+CSO) 曲线 + 降雨柱 (复刻 results_FC_full.py)。"""
+    """Draw one event's FC (Flooding+CSO) curve + rainfall bars on a subplot (reproduced from results_FC_full.py)."""
     sim_start = scenario_sim_start.get(name, datetime.datetime(2020, 1, 1, 2, 0, 0))
     rain_times, rain_vals = scenario_rain_raw.get(name, ([], np.array([])))
 
-    # FC 曲线 (flooding[1:] + CSO[1:]) —— 以 BC 数据长度为基准
+    # FC curve (flooding[1:] + CSO[1:]) - based on the BC data length
     if name not in results['BC']:
         ax.set_title(f'Event{event_no}', fontsize=16)
         return
@@ -207,14 +207,14 @@ def _draw_fc_subplot(ax, name, event_no):
                  + np.array(results['BC'][name]['CSO'][1:]))
     fc_data_len = len(bc_fc_raw)
 
-    # 每 5 步聚合一次 (与 results_FC_full.py 一致)
+    # Aggregate every 5 steps (same as results_FC_full.py)
     fc_plot_idx = np.arange(0, fc_data_len, 5)
     n_agg = len(fc_plot_idx)
     dt_agg = [sim_start + datetime.timedelta(minutes=5 * 5 * i) for i in range(n_agg)]
 
     bc_fc = bc_fc_raw[fc_plot_idx] / 1000  # 10^3 m^3
 
-    # 降雨柱
+    # Rainfall bars
     ax_rain = _draw_rain(ax, rain_times, rain_vals)
     ax.set_xlim(dt_agg[0] - datetime.timedelta(hours=1),
                 dt_agg[-1] + datetime.timedelta(hours=1))
@@ -222,7 +222,7 @@ def _draw_fc_subplot(ax, name, event_no):
         ax_rain.set_xlim(dt_agg[0] - datetime.timedelta(hours=1),
                          dt_agg[-1] + datetime.timedelta(hours=1))
 
-    # 3 个 x 刻度
+    # 3 x ticks
     n_ticks = len(dt_agg)
     tick_pos = [0, n_ticks // 2, n_ticks - 1]
     ax.set_xticks([dt_agg[i] for i in tick_pos])
@@ -231,11 +231,11 @@ def _draw_fc_subplot(ax, name, event_no):
     ax.set_ylabel('Flooding and CSO\n(10³ m³)', fontsize=13)
     ax.tick_params(axis='both', labelsize=11)
 
-    # FC 曲线 (与 results_FC_full.py 颜色/线型/alpha 一致)
+    # FC curve (same colors/line styles/alpha as results_FC_full.py)
     ax.plot(dt_agg, bc_fc, color=ccf['BC'], alpha=FC_ALPHA['BC'],
             linewidth=2.0, zorder=5)
 
-    # MPC FC 曲线
+    # MPC FC curve
     if name in results['MPC']:
         mpc_fc_raw = (np.array(results['MPC'][name]['flooding'][1:])
                       + np.array(results['MPC'][name]['CSO'][1:]))
@@ -243,7 +243,7 @@ def _draw_fc_subplot(ax, name, event_no):
         ax.plot(dt_agg, mpc_fc, color=ccf['MPC'], alpha=FC_ALPHA['MPC'],
                 linewidth=2.0, linestyle=FC_LINESTYLES['MPC'], zorder=5)
 
-    # Agent (DeepSeek) FC 曲线
+    # Agent (DeepSeek) FC curve
     if name in results['Agent']:
         ag_fc_raw = (np.array(results['Agent'][name]['flooding'][1:])
                      + np.array(results['Agent'][name]['CSO'][1:]))
@@ -255,11 +255,11 @@ def _draw_fc_subplot(ax, name, event_no):
 
 
 def _draw_action_subplot(ax, name, event_no):
-    """在一个子图上绘制某事件的控制曲线 (开启泵总数量) + 降雨柱 (复刻 results_Action_total.py)。"""
+    """Draw one event's control curve (total pumps on) + rainfall bars on a subplot (reproduced from results_Action_total.py)."""
     sim_start = scenario_sim_start.get(name, datetime.datetime(2020, 1, 1, 2, 0, 0))
     rain_times, rain_vals = scenario_rain_raw.get(name, ([], np.array([])))
 
-    # 收集各方法 action -> 开启泵总数量 (7台二进制泵求和)
+    # Collect each method's action -> total number of pumps on (sum of 7 binary pumps)
     method_data = {}
     max_len = 0
     for method_label in ('BC', 'Agent', 'MPC'):
@@ -281,7 +281,7 @@ def _draw_action_subplot(ax, name, event_no):
         if action_arr.shape[0] > max_len:
             max_len = action_arr.shape[0]
 
-    # 降雨柱
+    # Rainfall bars
     ax_rain2 = _draw_rain(ax, rain_times, rain_vals)
 
     if max_len > 0:
@@ -292,8 +292,8 @@ def _draw_action_subplot(ax, name, event_no):
         x_hi = time_axis[-1] + datetime.timedelta(minutes=10)
         ax_rain2.set_xlim(x_lo, x_hi)
 
-        # 各方法开启泵总数量阶梯曲线 (与 results_Action_total.py 颜色/线型一致)
-        for method_label in ('MPC', 'BC', 'Agent'):  # 绘制层叠顺序 (底->顶)
+        # Stair curves of total pumps on per method (same colors/line styles as results_Action_total.py)
+        for method_label in ('MPC', 'BC', 'Agent'):  # Drawing order (bottom -> top)
             md = method_data.get(method_label)
             if md is None:
                 continue
@@ -317,7 +317,7 @@ def _draw_action_subplot(ax, name, event_no):
 
 
 # ============================================================
-# 5. 单一图例 (两张图共用, 数据源与图例不变): BC 实线, MPC/Agent 虚线, Rainfall
+# 5. Single legend (shared by both figures, data and legend unchanged): BC solid, MPC/Agent dashed, Rainfall
 # ============================================================
 unified_handles = [
     Line2D([0], [0], color=ccf['BC'],    linewidth=2.5, linestyle='-',  label='BC'),
@@ -327,14 +327,14 @@ unified_handles = [
 ]
 
 # ============================================================
-# 6. 图1: 全部 Flooding and CSO 结果 (5行2列)
+# 6. Figure 1: all Flooding and CSO results (5 rows x 2 columns)
 # ============================================================
 fig1 = plt.figure(dpi=150, figsize=(14, 3.2 * n_rows))
 gs1 = GridSpec(n_rows, n_cols, figure=fig1, hspace=0.38, wspace=0.25)
 gs1.update(top=0.95, bottom=0.07)
 
 for idx, name in enumerate(selected_names):
-    event_no = event_start + idx   # 实际事件编号 (1..10)
+    event_no = event_start + idx   # Actual event number (1..10)
     ax_fc = fig1.add_subplot(gs1[idx // n_cols, idx % n_cols])
     _draw_fc_subplot(ax_fc, name, event_no)
 
@@ -348,14 +348,14 @@ plt.close(fig1)
 print(f"已保存: {out_path1}")
 
 # ============================================================
-# 7. 图2: 全部控制曲线结果 (5行2列)
+# 7. Figure 2: all control curves (5 rows x 2 columns)
 # ============================================================
 fig2 = plt.figure(dpi=150, figsize=(14, 3.2 * n_rows))
 gs2 = GridSpec(n_rows, n_cols, figure=fig2, hspace=0.38, wspace=0.25)
 gs2.update(top=0.95, bottom=0.07)
 
 for idx, name in enumerate(selected_names):
-    event_no = event_start + idx   # 实际事件编号 (1..10)
+    event_no = event_start + idx   # Actual event number (1..10)
     ax_act = fig2.add_subplot(gs2[idx // n_cols, idx % n_cols])
     _draw_action_subplot(ax_act, name, event_no)
 

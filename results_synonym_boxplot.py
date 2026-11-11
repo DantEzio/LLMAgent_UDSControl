@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-不确定性分析 — 同义词干扰实验箱型图。
+Uncertainty analysis - box plots for the synonym perturbation experiment.
 
-展示不同降雨事件下，4个LLM后端在同义词prompt扰动下的 Flooding+CSO 分布。
-每个子图对应一个降雨事件，内含4个LLM的箱型图（跨variant聚合）。
+Shows the Flooding+CSO distribution of 4 LLM backends under synonym prompt perturbation for
+different rainfall events. Each subplot corresponds to one rainfall event and contains box
+plots for the 4 LLMs (aggregated across variants).
 
-用法:
+Usage:
     python results_synonym_boxplot.py
 """
 
@@ -16,11 +17,11 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import glob
 
-# ── 路径设置 ──────────────────────────────────────────────
+# -- Path settings --------------------------------------------
 _sys_parent = os.path.dirname(os.path.abspath(__file__))
 _drl_control_dir = os.path.join(_sys_parent, 'DRL-control')
 
-# ── 中文字体 & 样式 ───────────────────────────────────────
+# -- CJK font & styling ----------------------------------------
 config = {
     "font.size": 14,
     "mathtext.fontset": 'stix',
@@ -30,7 +31,7 @@ config = {
 }
 rcParams.update(config)
 
-# ── LLM 配置 (与 results_varLLM.py 一致) ──────────────────
+# -- LLM configuration (same as results_varLLM.py) ----------------
 LLM_NAMES = ['DeepSeek-v4-flash', 'GLM-4-flash', 'Moonshot-v1-8k', 'Minimax-M3']
 LLM_DIR_MAP = {
     'DeepSeek-v4-flash': 'DeepSeek',
@@ -40,37 +41,37 @@ LLM_DIR_MAP = {
 }
 
 COLORS = {
-    'DeepSeek-v4-flash': '#2e7d32',   # 深绿
-    'GLM-4-flash':       '#1f77b4',   # 蓝
-    'Moonshot-v1-8k':    '#9467bd',   # 紫
-    'Minimax-M3':        '#ff7f0e',    # 橙
+    'DeepSeek-v4-flash': '#2e7d32',   # Dark green
+    'GLM-4-flash':       '#1f77b4',   # Blue
+    'Moonshot-v1-8k':    '#9467bd',   # Purple
+    'Minimax-M3':        '#ff7f0e',    # Orange
 }
 
-# ── 数据路径 ──────────────────────────────────────────────
+# -- Data paths ----------------------------------------------
 SYNONYM_BASE = os.path.join(_drl_control_dir, 'step4-uncertainty',
                             'results_uncertainty', 'synonym')
 BASELINE_BASE = os.path.join(_drl_control_dir, 'step4-uncertainty',
                              'results_uncertainty', 'baseline')
 
-# ── 加载数据 ──────────────────────────────────────────────
+# -- Load data ------------------------------------------------
 def load_synonym_data():
     """
-    返回 dict[event_short_name][llm_label] -> list[float] (各 variant 的 F+C)
+    Return dict[event_short_name][llm_label] -> list[float] (F+C of each variant).
     """
-    # 发现所有事件名（从任意一个LLM的 variant_0 目录获取）
+    # Discover all event names (from one LLM's variant_0 directory)
     first_llm_dir = os.path.join(SYNONYM_BASE, 'DeepSeek', 'variant_0')
     event_files = sorted(glob.glob(os.path.join(first_llm_dir, '*.npy')))
     event_names = []
     for f in event_files:
         basename = os.path.basename(f)
-        # results_Event_XX_日期_预警.npy -> Event_XX
+        # results_Event_XX_<date>_<warning>.npy -> Event_XX
         name = basename.replace('results_', '').replace('.npy', '')
-        # 提取短名称 Event_XX
+        # Extract the short name Event_XX
         parts = name.split('_')
         short = '_'.join(parts[:2]) if len(parts) >= 2 else name
-        event_names.append((short, f))  # (短名, 完整文件路径模板)
+        event_names.append((short, f))  # (short name, full file path template)
 
-    # 组织数据: {event_short: {llm: [fc_values_per_variant]}}
+    # Organize data: {event_short: {llm: [fc_values_per_variant]}}
     data = {}
     for short_name, _ in event_names:
         data[short_name] = {}
@@ -81,7 +82,7 @@ def load_synonym_data():
             print(f"  警告: 目录不存在 {llm_base}")
             continue
 
-        # 发现所有 variant
+        # Discover all variants
         variant_dirs = sorted(
             [d for d in os.listdir(llm_base)
              if os.path.isdir(os.path.join(llm_base, d)) and d.startswith('variant_')]
@@ -90,12 +91,12 @@ def load_synonym_data():
         for short_name, template_path in event_names:
             fc_list = []
             for vdir in variant_dirs:
-                # 在该 variant 目录下查找匹配的文件
+                # Find matching files in that variant directory
                 vpath = os.path.join(llm_base, vdir)
-                pattern = os.path.basename(template_path)  # 文件名模式
+                pattern = os.path.basename(template_path)  # Filename pattern
                 candidates = glob.glob(os.path.join(vpath, pattern))
                 if not candidates:
-                    # 尝试模糊匹配: 包含 Event_XX
+                    # Try fuzzy matching: filename contains Event_XX
                     event_key = short_name.split('_')[1] if '_' in short_name else ''
                     cands = [f for f in os.listdir(vpath)
                              if f.endswith('.npy') and f'Event_{event_key}_' in f]
@@ -107,7 +108,7 @@ def load_synonym_data():
                     flooding = result.get('flooding', [])
                     cso = result.get('CSO', [])
                     if flooding and cso:
-                        fc = flooding[-1] + cso[-1]  # 累积 F+C
+                        fc = flooding[-1] + cso[-1]  # Cumulative F+C
                         fc_list.append(fc)
 
             data[short_name][llm_label] = fc_list
@@ -117,8 +118,8 @@ def load_synonym_data():
 
 def load_baseline_data(event_names):
     """
-    加载 baseline (无扰动) 的 F+C 原始值 (m³)。
-    返回 dict[event_short_name][llm_label] -> float (F+C, 原始 m³)
+    Load the raw F+C values (m^3) of the baseline (undisturbed) run.
+    Returns dict[event_short_name][llm_label] -> float (F+C, raw m^3).
     """
     baseline = {}
     for short_name in event_names:
@@ -136,14 +137,14 @@ def load_baseline_data(event_names):
                 flooding = result.get('flooding', [])
                 cso = result.get('CSO', [])
                 if flooding and cso:
-                    fc = flooding[-1] + cso[-1]  # 原始 m³
+                    fc = flooding[-1] + cso[-1]  # Raw m^3
                     baseline[short_name][llm_label] = fc
 
     return baseline
 
 
 def main():
-    """命令行入口: 加载同义替换与 baseline 实验数据, 绘制覆盖率分组柱状图。
+    """CLI entry point: load synonym-replacement and baseline experiment data and draw the grouped CoV bar chart.
     """
     print("加载同义词干扰实验数据...")
     data, event_names = load_synonym_data()
@@ -156,10 +157,10 @@ def main():
         llms_ok = [llm for llm in LLM_NAMES if data.get(en, {}).get(llm)]
         print(f"  {en}: {dict((llm, len(data[en][llm])) for llm in llms_ok)}")
 
-    # ── 计算每个 (事件, LLM) 的 Coefficient of Variation (CoV) ──
-    # 逐事件: CoV_event = std(F+C across variants, ddof=1) / mean(F+C across variants) × 100 (%)
-    # 整体:   CoV_llm = mean(CoV_event over events)
-    # 采用逐事件再平均，避免事件间 F+C 量级差异主导 CoV
+    # -- Compute the Coefficient of Variation (CoV) per (event, LLM) --
+    # Per event: CoV_event = std(F+C across variants, ddof=1) / mean(F+C across variants) x 100 (%)
+    # Overall: CoV_llm = mean(CoV_event over events)
+    # Average per-event values so differences in F+C magnitude between events do not dominate CoV
     cv_per_event = {}   # {event_short: {llm: cov%}}
     cv_per_llm = {}     # {llm: mean cov%}
     for llm_label in LLM_NAMES:
@@ -184,13 +185,13 @@ def main():
         print(f"    {llm_label}: {cv_val:.2f}%" if not np.isnan(cv_val)
               else f"    {llm_label}: N/A")
 
-    # ── 单图: x=LLM, 每个 LLM 10 个柱 (每事件一个), 柱高=该(事件,LLM)的 CoV(%) ──
+    # -- Single figure: x=LLM, 10 bars per LLM (one per event), bar height=CoV(%) for that (event, LLM) --
     n_llm = len(LLM_NAMES)
     n_evt = len(event_names)
     bar_w = 0.75
-    group_gap = 1.5   # 组间额外间隔
+    group_gap = 1.5   # Extra spacing between groups
 
-    # 计算 bar 的 x 位置 + 每组中心
+    # Compute bar x positions and group centers
     bar_x = []           # [(xpos, llm, event_name), ...]
     group_centers = []
     x_cursor = 0.0
@@ -198,11 +199,11 @@ def main():
         for ei, en in enumerate(event_names):
             bar_x.append((x_cursor + ei * bar_w, llm, en))
         group_centers.append(x_cursor + (n_evt - 1) * bar_w / 2.0)
-        x_cursor += (n_evt - 1) * bar_w + bar_w + group_gap   # 下一组起点
+        x_cursor += (n_evt - 1) * bar_w + bar_w + group_gap   # Start of the next group
 
     fig, ax = plt.subplots(dpi=150, figsize=(14, 7))
 
-    # ── 绘制柱子 (每柱=该(事件,LLM)的 CoV) ──
+    # -- Draw bars (one bar = CoV of that (event, LLM)) --
     for (xpos, llm, en) in bar_x:
         cv = cv_per_event.get(en, {}).get(llm, float('nan'))
         color = COLORS[llm]
@@ -217,7 +218,7 @@ def main():
             ax.text(xpos, cv, f'{cv:.2f}', ha='center', va='bottom',
                     fontsize=7, color=color)
 
-    # ── 每个 LLM 组内: 均值水平线 + 标注 ──
+    # -- Within each LLM group: mean horizontal line + annotation --
     for li, llm in enumerate(LLM_NAMES):
         cv_vals = [cv_per_event.get(en, {}).get(llm, float('nan')) for en in event_names]
         valid = [v for v in cv_vals if not np.isnan(v)]
@@ -231,7 +232,7 @@ def main():
         ax.text(xmax + 0.15, mean_v, f'mean={mean_v:.2f}%', va='center', ha='left',
                 fontsize=10, color=COLORS[llm], fontweight='bold')
 
-    # ── x 轴: 主刻度=LLM 名, 次刻度=事件编号 ──
+    # -- x axis: major ticks = LLM names, minor ticks = event numbers --
     ax.set_xticks(group_centers)
     ax.set_xticklabels(LLM_NAMES, fontsize=12, fontweight='bold')
     ax.set_xticks([x for (x, l, e) in bar_x], minor=True)
@@ -249,7 +250,7 @@ def main():
     ax.set_xlim(bar_x[0][0] - bar_w, bar_x[-1][0] + bar_w + group_gap)
     ax.set_ylim(bottom=0)
 
-    # ── 图例: 4 LLM 颜色 + 各自 mean CoV ──
+    # -- Legend: colors for 4 LLMs + their mean CoV --
     from matplotlib.patches import Patch
     handles = [
         Patch(facecolor=COLORS[lbl], edgecolor=COLORS[lbl], alpha=0.7,
@@ -262,7 +263,7 @@ def main():
 
     fig.tight_layout()
 
-    # ── 保存 ───────────────────────────────────────────────
+    # -- Save -----------------------------------------------------
     out_dir = os.path.join(_sys_parent, 'Results', 'LLMUsage', 'FigUncertainty')
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, 'synonym_cov_bar.png')

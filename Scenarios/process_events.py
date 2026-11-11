@@ -14,7 +14,7 @@ EXCEL_PATH = os.path.join(BASE_DIR, "Chaohu_Rainfall_2015-2025_OpenMeteo.xlsx")
 EVENTS_DIR = os.path.join(BASE_DIR, "NMC_Events_2015_2025")
 
 # ============================================================
-# 52 events extracted from 中央气象台_巢湖降雨预警_2015_2025.md
+# 52 events extracted from the NMC Chaohu rainfall warning summary (2015-2025)
 # Format: (seq, year, date_str, warning_type, location, forecast_rain, source, url)
 # ============================================================
 events = [

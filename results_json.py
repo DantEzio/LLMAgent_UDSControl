@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-LLM 交互记录导出 (Markdown 报告)。
-从 step3-BCAgent-control 的结果 .npy 文件中提取 LLM 交互数据
-( llm_full_trace / adjustment_log / warning_log 及其汇总 ),
-渲染为 Markdown 报告, 保存到 Results/LLMInteractionJSON/ (新建文件夹)。
+LLM interaction log export (Markdown reports).
+Extracts LLM interaction data (llm_full_trace / adjustment_log / warning_log and their summaries)
+from the .npy result files of step3-BCAgent-control, renders them as Markdown reports and
+saves them to Results/LLMInteractionJSON/ (folder created if needed).
 
-用法:
+Usage:
     python results_json.py
 """
 
@@ -22,17 +22,17 @@ OUT_DIR = os.path.join(PROJECT_ROOT, 'Results', 'LLMInteractionJSON')
 
 
 # ---------------------------------------------------------------
-# 工具函数
+# Utility functions
 # ---------------------------------------------------------------
 def _esc(s):
-    """转义 Markdown 表格单元格: 去掉换行、转义竖线。"""
+    """Escape a Markdown table cell: strip newlines and escape pipes."""
     if s is None:
         return ''
     return str(s).replace('\r', ' ').replace('\n', ' ').replace('|', '\\|')
 
 
 def _json_block(obj, max_chars=None):
-    """对象 -> 带缩进的 JSON 字符串 (保留中文)。"""
+    """Object -> indented JSON string (keep non-ASCII text)."""
     s = json.dumps(obj, ensure_ascii=False, indent=2, default=str)
     if max_chars is not None and len(s) > max_chars:
         s = s[:max_chars] + '\n... (truncated)'
@@ -40,7 +40,7 @@ def _json_block(obj, max_chars=None):
 
 
 def _table(header, rows):
-    """由表头 + 行列表生成 Markdown 表格。"""
+    """Build a Markdown table from a header and a list of rows."""
     lines = ['| ' + ' | '.join(header) + ' |',
              '|' + '|'.join(['---'] * len(header)) + '|']
     for r in rows:
@@ -49,10 +49,10 @@ def _table(header, rows):
 
 
 # ---------------------------------------------------------------
-# 各 trace_type 的渲染
+# Rendering for each trace_type
 # ---------------------------------------------------------------
 def _render_mode_a(e, idx):
-    """mode_a_full_analysis: 第一次 LLM (动作调整) 的完整输入输出。"""
+    """mode_a_full_analysis: complete input/output of the first LLM call (action adjustment)."""
     lines = [f'### [{idx}] mode_a_full_analysis — 动作调整 LLM 调用 (step {e.get("step")}, {e.get("sim_time")})',
              '']
     lines.append('**event_info (来自 LLMEventAgent 解析):**')
@@ -84,7 +84,7 @@ def _render_mode_a(e, idx):
 
 
 def _render_timing(e, idx):
-    """step12_timing_validation_A_or_B: 二次 LLM (时机判断) 的完整输入输出。"""
+    """step12_timing_validation_A_or_B: complete input/output of the second LLM call (timing decision)."""
     lines = [f'### [{idx}] {e.get("trace_type")} — 时机判断 LLM 调用 (step {e.get("step")}, {e.get("sim_time")})',
              '']
     lines.append('**输入:**')
@@ -109,7 +109,7 @@ def _render_timing(e, idx):
 
 
 def _render_no_cache_table(entries):
-    """step12_timing_validation_C_no_event_cache: 数量大, 用紧凑表格。"""
+    """step12_timing_validation_C_no_event_cache: large volume, rendered as a compact table."""
     header = ['#', 'step', 'sim_time', 'rainfall', 'suitable', 'action_used', 'action']
     rows = []
     for i, e in enumerate(entries, 1):
@@ -122,7 +122,7 @@ def _render_no_cache_table(entries):
 
 
 def _render_refresh(e, idx):
-    """渲染"新事件首次出现"的 Markdown 片段。
+    """Render the Markdown fragment for "a new event appears for the first time".
     """
     lines = [f'### [{idx}] v14_periodic_refresh_trigger (step {e.get("step")}, {e.get("sim_time")})', '']
     lines.append(f'- 触发原因: `{e.get("refresh_trigger")}`')
@@ -134,7 +134,7 @@ def _render_refresh(e, idx):
 
 
 def _render_expiry(e, idx):
-    """渲染"预警失效/取消"的 Markdown 片段。
+    """Render the Markdown fragment for "warning expired / cancelled".
     """
     lines = [f'### [{idx}] mode_v10_hard_expiry (step {e.get("step")}, {e.get("sim_time")})', '']
     lines.append(f'- 硬截止时间: {e.get("hard_deadline")}')
@@ -146,17 +146,17 @@ def _render_expiry(e, idx):
 
 
 # ---------------------------------------------------------------
-# 单事件渲染
+# Rendering for a single event
 # ---------------------------------------------------------------
 def render_event_md(name, d):
-    """把一个事件的全部 LLM 交互 trace 渲染为 Markdown 报告。
+    """Render all LLM interaction traces of one event as a Markdown report.
 
     Args:
-        scenario_name: 事件名 (与 results 文件名一致)。
-        result: 该事件的 bc_agent_results 字典 (含 trace 列表)。
+        scenario_name: Event name (matching the results filename).
+        result: The bc_agent_results dict for that event (containing trace lists).
 
     Returns:
-        str: Markdown 文本。
+        str: Markdown text.
     """
     traces = d.get('llm_full_trace', [])
     adj = d.get('adjustment_log', [])
@@ -164,7 +164,7 @@ def render_event_md(name, d):
 
     L = [f'# {name} — LLM 交互记录', '']
 
-    # 概览
+    # Overview
     L.append('## 概览')
     L.append('')
     type_counter = Counter(e.get('trace_type', '?') for e in traces)
@@ -183,7 +183,7 @@ def render_event_md(name, d):
     L.append('---')
     L.append('')
 
-    # 分组渲染 llm_full_trace
+    # Render llm_full_trace by group
     order = ['mode_a_full_analysis',
              'step12_timing_validation_A_or_B',
              'v14_periodic_refresh_trigger',
@@ -192,7 +192,7 @@ def render_event_md(name, d):
     grouped = {}
     for t in order:
         grouped[t] = [e for e in traces if e.get('trace_type') == t]
-    # 兜底: 未被归类到的 trace_type
+    # Fallback: trace_type values not otherwise classified
     known = set(order)
     grouped['_other'] = [e for e in traces if e.get('trace_type') not in known]
 
@@ -242,7 +242,7 @@ def render_event_md(name, d):
         L.append('---')
         L.append('')
 
-    # adjustment_log 表格
+    # adjustment_log table
     L.append('## 调整日志 (adjustment_log)')
     L.append('')
     if adj:
@@ -256,7 +256,7 @@ def render_event_md(name, d):
     L.append('---')
     L.append('')
 
-    # warning_log 表格
+    # warning_log table
     L.append('## 预警日志 (warning_log)')
     L.append('')
     if warn:
@@ -271,10 +271,10 @@ def render_event_md(name, d):
 
 
 # ---------------------------------------------------------------
-# 主流程
+# Main workflow
 # ---------------------------------------------------------------
 def main():
-    """命令行入口: 遍历所有事件结果, 生成 Markdown 报告到 Results/LLMInteractionJSON/。
+    """CLI entry point: iterate over all event results and generate Markdown reports in Results/LLMInteractionJSON/.
     """
     files = sorted(glob.glob(os.path.join(SRC_DIR, 'bc_agent_results_*.npy')))
     if not files:

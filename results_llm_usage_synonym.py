@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-统计 4 个 BCAgent LLM 变体的 Token 用量、API 调用花费、处理文本量、API 调用耗时。
+Aggregate token usage, API call cost, processed text volume and API latency for 4 BCAgent LLM variants.
 
-变体:
-  - step3-BCAgent-control        → DeepSeek-v4-flash
-  - step3-BCAgent-control-GLM    → GLM-4-flash
-  - step3-BCAgent-control-Kimi   → Moonshot-v1-8k
-  - step3-BCAgent-control-MiniMax→ Minimax-M3
+Variants:
+  - step3-BCAgent-control         -> DeepSeek-v4-flash
+  - step3-BCAgent-control-GLM     -> GLM-4-flash
+  - step3-BCAgent-control-Kimi    -> Moonshot-v1-8k
+  - step3-BCAgent-control-MiniMax -> Minimax-M3
 
-输出:
-  - Results/LLMUsage/llm_usage_summary.csv  (按 LLM 变体的汇总表)
-  - Results/LLMUsage/llm_usage_by_event.csv (按事件×LLM 的详细表)
-  - Results/LLMUsage/llm_improvement_usage_comparison.png (3×1: 提升率/Token/Time 小提琴图)
-  - Results/LLMUsage/llm-api-pricing-table.md (定价参考表)
+Outputs:
+  - Results/LLMUsage/llm_usage_summary.csv  (summary per LLM variant)
+  - Results/LLMUsage/llm_usage_by_event.csv (detail per event x LLM)
+  - Results/LLMUsage/llm_improvement_usage_comparison.png (3x1: improvement / Token / Time violin plots)
+  - Results/LLMUsage/llm-api-pricing-table.md (pricing reference table)
 
-用法:
+Usage:
     python results_llm_usage.py
 """
 
@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 import glob
 from matplotlib import rcParams
 
-import results_synonym_boxplot as syn_box   # 复用同义词实验数据加载与配色 (用于子图d)
+import results_synonym_boxplot as syn_box   # Reuse the synonym experiment data loading and colors (for subplot d)
 
 import matplotlib
 config = {
@@ -43,7 +43,7 @@ config = {
 rcParams.update(config)
 
 # ============================================================
-# LLM 变体配置
+# LLM variant configuration
 # ============================================================
 LLM_VARIANTS = {
     'DeepSeek-v4-flash': 'step3-BCAgent-control',
@@ -53,17 +53,17 @@ LLM_VARIANTS = {
 }
 
 LLM_COLORS = {
-    'DeepSeek-v4-flash': '#2e7d32',      # 深绿色 (与 results_varLLM.py / results_FC.py AgenticAI-Control 一致)
-    'GLM-4-flash':       '#1f77b4',      # 蓝色 (与 results_varLLM.py 一致)
-    'Moonshot-v1-8k':    '#9467bd',      # 紫色 (与 results_varLLM.py 一致)
-    'Minimax-M3':        '#ff7f0e',      # 橙色 (与 results_varLLM.py 一致)
+    'DeepSeek-v4-flash': '#2e7d32',      # Dark green (same as AgenticAI-Control in results_varLLM.py / results_FC.py)
+    'GLM-4-flash':       '#1f77b4',      # Blue (same as results_varLLM.py)
+    'Moonshot-v1-8k':    '#9467bd',      # Purple (same as results_varLLM.py)
+    'Minimax-M3':        '#ff7f0e',      # Orange (same as results_varLLM.py)
 }
 
 project_root = _sys_parent
 scenarios_dir = os.path.join(project_root, 'Scenarios', 'NMC_Events_2015_2025')
 
 # ============================================================
-# LLM API 定价 (¥ / 百万 tokens)
+# LLM API pricing (CNY / million tokens)
 # ============================================================
 PRICING = {
     'DeepSeek-v4-flash': {'input': 1.00, 'output': 2.00},
@@ -73,7 +73,7 @@ PRICING = {
 }
 
 # ============================================================
-# 1. 发现场景名称 (基于 BC 结果)
+# 1. Discover scenario names (based on BC results)
 # ============================================================
 nmc_scenario_names = sorted([
     d for d in os.listdir(scenarios_dir)
@@ -94,7 +94,7 @@ print(f"其中 {len(scenario_names)} 个场景有 BC 结果")
 print(f"LLM 变体: {list(LLM_VARIANTS.keys())}")
 
 # ============================================================
-# 2. 加载所有 LLM 变体结果并提取 LLM 调用追踪数据
+# 2. Load all LLM variant results and extract LLM call traces
 # ============================================================
 # llm_data[llm_label] = list of flat trace records
 llm_data = {}
@@ -116,18 +116,18 @@ for llm_label, dir_name in LLM_VARIANTS.items():
         for trace in full_trace:
             if not isinstance(trace, dict):
                 continue
-            # 只保留真实的 LLM API 调用记录，过滤掉管理类 trace
+            # Keep only real LLM API call records; filter out housekeeping traces
             if trace.get('trace_type') != 'mode_a_full_analysis':
                 continue
 
-            # 提取文本字符数
+            # Extract the text character count
             prompt_chars = len(trace.get('mode_a_prompt', ''))
             response_chars = len(trace.get('mode_a_raw_response', ''))
             prompt_tokens = trace.get('prompt_tokens', 0)
             completion_tokens = trace.get('completion_tokens', 0)
             total_tokens = trace.get('total_tokens', 0)
 
-            # 计算本次调用的花费
+            # Compute the cost of this call
             price_cfg = PRICING[llm_label]
             cost = (prompt_tokens / 1e6) * price_cfg['input'] + (completion_tokens / 1e6) * price_cfg['output']
 
@@ -150,7 +150,7 @@ for llm_label, dir_name in LLM_VARIANTS.items():
     print(f"  [{llm_label}] 加载 {len(records)} 条 LLM 调用记录")
 
 # ============================================================
-# 2b. 加载 BC 结果 (用于计算提升率)
+# 2b. Load BC results (to compute improvement rates)
 # ============================================================
 results_BC = {}
 for name in scenario_names:
@@ -159,10 +159,10 @@ for name in scenario_names:
         results_BC[name] = np.load(bc_path, allow_pickle=True).tolist()
 
 # ============================================================
-# 2c. 计算各 LLM 相比 BC 的 F+C 提升率 (每事件一个值)
+# 2c. Compute F+C improvement over BC for each LLM (one value per event)
 # ============================================================
 llm_improvement_vs_BC = {}   # {llm_label: [imp1, imp2, ...]}
-llm_fc_by_event = {}          # {llm_label: {scenario_name: fc_value}} — 绝对 F+C 值 (供假设检验)
+llm_fc_by_event = {}          # {llm_label: {scenario_name: fc_value}} - absolute F+C values (for hypothesis tests)
 for llm_label, dir_name in LLM_VARIANTS.items():
     imp_vs_bc = []
     llm_fc_by_event[llm_label] = {}
@@ -177,7 +177,7 @@ for llm_label, dir_name in LLM_VARIANTS.items():
         llm_result = np.load(llm_path, allow_pickle=True).tolist()
         bc_fc = results_BC[name]['flooding'][-1] + results_BC[name]['CSO'][-1]
         llm_fc = llm_result['flooding'][-1] + llm_result['CSO'][-1]
-        llm_fc_by_event[llm_label][name] = llm_fc  # 保存绝对值供假设检验
+        llm_fc_by_event[llm_label][name] = llm_fc  # Save absolute values for the hypothesis tests
 
         if bc_fc > 0:
             imp_vs_bc.append((bc_fc - llm_fc) / bc_fc * 100)
@@ -187,7 +187,7 @@ for llm_label, dir_name in LLM_VARIANTS.items():
         print(f"  [{llm_label}] vsBC 平均提升: {np.mean(imp_vs_bc):.2f}% ({len(imp_vs_bc)} 事件)")
 
 # ============================================================
-# 3. 检查数据可用性
+# 3. Check data availability
 # ============================================================
 has_tokens = any(
     any(r.get('total_tokens', 0) > 0 for r in records)
@@ -202,7 +202,7 @@ print(f"\nToken 数据可用: {'是' if has_tokens else '否 (需重新运行模
 print(f"耗时数据可用: {'是' if has_timing else '否 (需重新运行模拟)'}")
 
 # ============================================================
-# 4. 按 LLM 变体汇总统计
+# 4. Aggregate statistics by LLM variant
 # ============================================================
 print("\n" + "=" * 90)
 print("按 LLM 变体汇总 - Token 用量 / 花费 / 文本量 / 调用耗时")
@@ -282,7 +282,7 @@ for llm_label in LLM_VARIANTS:
 df_summary = pd.DataFrame(summary_rows)
 
 # ============================================================
-# 5. 按事件 × LLM 变体汇总 (详细表)
+# 5. Aggregate by event x LLM variant (detailed table)
 # ============================================================
 print("\n" + "=" * 90)
 print("按事件 × LLM 变体 - 每条记录的详细统计")
@@ -297,7 +297,7 @@ for llm_label in LLM_VARIANTS:
 if detail_rows:
     df_detail = pd.DataFrame(detail_rows)
 
-    # 按场景 + LLM 汇总
+    # Aggregate by scenario + LLM
     event_summary = df_detail.groupby(['llm_label', 'scenario']).agg(
         调用次数=('total_tokens', 'count'),
         平均Total_Tokens=('total_tokens', 'mean'),
@@ -318,7 +318,7 @@ else:
     df_event_summary = pd.DataFrame()
 
 # ============================================================
-# 6. 保存 CSV
+# 6. Save the CSV
 # ============================================================
 output_dir = os.path.join(project_root, 'Results', 'LLMUsage')
 os.makedirs(output_dir, exist_ok=True)
@@ -330,7 +330,7 @@ if not df_event_summary.empty:
 print(f"\n汇总表已保存: {os.path.join(output_dir, 'llm_usage_summary.csv')}")
 
 # ============================================================
-# 7. 假设检验: 4 个 LLM 控制效果一致性 (Friedman + Nemenyi)
+# 7. Hypothesis test: consistency of the 4 LLM controllers (Friedman + Nemenyi)
 # ============================================================
 print("\n" + "=" * 90)
 print("假设检验: 4 个 LLM 控制效果一致性 (Friedman 检验)")
@@ -341,7 +341,7 @@ from scipy import stats
 from scipy.stats import rankdata
 from itertools import combinations
 
-# 检测 scikit-posthocs (用 find_spec 替代 try-except)
+# Detect scikit-posthocs (use find_spec instead of try-except)
 has_sp = importlib.util.find_spec('scikit_posthocs') is not None
 if has_sp:
     import scikit_posthocs as sp
@@ -351,8 +351,8 @@ else:
 
 ALPHA = 0.05
 
-# ---- 构建对齐的 F+C 矩阵 ----
-# 只保留所有 LLM 都有结果的事件, 确保完全配对
+# ---- Build the aligned F+C matrix ----
+# Keep only events where all LLMs have results, ensuring complete pairing
 test_llms = [l for l in LLM_VARIANTS if l in llm_fc_by_event and len(llm_fc_by_event[l]) > 0]
 common_scenarios = set(scenario_names)
 for llm_label in test_llms:
@@ -371,7 +371,7 @@ fc_matrix = np.array([
 n_events = fc_matrix.shape[0]
 k_llms = fc_matrix.shape[1]
 
-# ---- 描述统计 ----
+# ---- Descriptive statistics ----
 print("\n--- 描述统计 (F+C 绝对值, m³) ---")
 desc_rows = []
 for j, llm in enumerate(test_llms):
@@ -388,7 +388,7 @@ for j, llm in enumerate(test_llms):
         '最大值': round(np.max(col), 2),
     })
 
-# ---- 正态性检验 (Shapiro-Wilk on residuals, 仅参考) ----
+# ---- Normality test (Shapiro-Wilk on residuals, for reference only) ----
 grand_mean = fc_matrix.mean()
 row_means = fc_matrix.mean(axis=1, keepdims=True)
 col_means = fc_matrix.mean(axis=0, keepdims=True)
@@ -400,14 +400,14 @@ print(f"  W = {shapiro_stat:.4f}, p = {shapiro_p:.4f}")
 print(f"  残差正态性: {'满足' if normal_ok else '不满足'} (p {'>' if normal_ok else '<='} {ALPHA})")
 print(f"  注: 小样本下正态性仅供参考, 主检验使用非参数 Friedman")
 
-# ---- Friedman 检验 (主检验) ----
+# ---- Friedman test (primary test) ----
 print(f"\n--- 主检验: Friedman χ² (α = {ALPHA}) ---")
 columns_fc = [fc_matrix[:, j] for j in range(k_llms)]
 friedman_stat, friedman_p = stats.friedmanchisquare(*columns_fc)
 print(f"  Friedman χ² = {friedman_stat:.4f}")
 print(f"  p 值 = {friedman_p:.6f}")
 
-# 效应量: Kendall's W
+# Effect size: Kendall's W
 kendall_w = friedman_stat / (n_events * (k_llms - 1))
 print(f"  Kendall's W (效应量) = {kendall_w:.4f}")
 
@@ -417,7 +417,7 @@ if friedman_significant:
 else:
     print(f"  结论: 不能拒绝 H0 — {k_llms} 个 LLM 控制效果无显著差异")
 
-# ---- Friedman 秩 (rank 1 = F+C 最低 = 最优) ----
+# ---- Friedman ranks (rank 1 = lowest F+C = best) ----
 ranks_matrix = np.zeros_like(fc_matrix)
 for i in range(n_events):
     ranks_matrix[i] = rankdata(fc_matrix[i], method='average')
@@ -426,7 +426,7 @@ print("\n--- 平均秩 (rank 1 = F+C 最低 = 最优) ---")
 for j, llm in enumerate(test_llms):
     print(f"  {llm:20s}: {avg_ranks[j]:.2f}")
 
-# ---- Nemenyi 事后检验 ----
+# ---- Nemenyi post-hoc test ----
 nemenyi_p_matrix = None
 CD = None
 if has_sp:
@@ -437,7 +437,7 @@ if has_sp:
     print("  Nemenyi 校正后 p 值矩阵:")
     print(nemenyi_p_matrix.round(4).to_string())
 
-    # 临界差异 CD (q_α 查表: α=0.05)
+    # Critical difference CD (q_alpha from tables: alpha=0.05)
     q_alpha_table = {3: 2.343, 4: 2.569, 5: 2.728, 6: 2.850}
     q_alpha = q_alpha_table.get(k_llms, 2.569)
     CD = q_alpha * np.sqrt(k_llms * (k_llms + 1) / (6 * n_events))
@@ -452,7 +452,7 @@ if has_sp:
             print(f"    {test_llms[i]:20s} vs {test_llms[j]:20s}: p={p_val:.4f}, "
                   f"秩差={rank_diff:.2f}, {'显著' if sig else '不显著'}")
 
-# ---- Wilcoxon 符号秩检验 + Holm 校正 (稳健性补充) ----
+# ---- Wilcoxon signed-rank test + Holm correction (robustness check) ----
 print(f"\n--- 稳健性补充: Wilcoxon 符号秩 + Holm 校正 (α = {ALPHA}) ---")
 pair_indices = list(combinations(range(k_llms), 2))
 raw_p_values = []
@@ -465,7 +465,7 @@ for i, j in pair_indices:
     raw_p_values.append(p_w)
     print(f"  {test_llms[i]:20s} vs {test_llms[j]:20s}: W={stat_w:.1f}, p={p_w:.4f}")
 
-# Holm 校正 (步降法)
+# Holm correction (step-down procedure)
 m_tests = len(raw_p_values)
 sorted_order = np.argsort(raw_p_values)
 holm_adjusted = np.array(raw_p_values, dtype=float)
@@ -483,7 +483,7 @@ for pos, (i, j) in enumerate(pair_indices):
     print(f"    {test_llms[i]:20s} vs {test_llms[j]:20s}: p_adj={p_adj:.4f}, "
           f"{'显著' if sig else '不显著'}")
 
-# ---- 保存文字报告 ----
+# ---- Save the text report ----
 report_lines = []
 report_lines.append("=" * 80)
 report_lines.append("LLM 控制效果一致性假设检验报告")
@@ -547,7 +547,7 @@ with open(report_path, 'w', encoding='utf-8') as f:
     f.write('\n'.join(report_lines))
 print(f"\n报告已保存: {report_path}")
 
-# ---- 保存 CSV 汇总表 ----
+# ---- Save the CSV summary table ----
 summary_rows_ht = []
 summary_rows_ht.append({
     '检验类型': 'Friedman',
@@ -583,7 +583,7 @@ csv_path = os.path.join(output_dir, 'hypothesis_test_summary.csv')
 df_ht.to_csv(csv_path, index=False)
 print(f"汇总表已保存: {csv_path}")
 
-# ---- Nemenyi CD 图 ----
+# ---- Nemenyi CD diagram ----
 if has_sp:
     fig_cd, ax_cd = plt.subplots(dpi=150, figsize=(14, 3.2))
 
@@ -594,18 +594,18 @@ if has_sp:
 
     n_plot = len(sorted_llms)
 
-    # 所有点画在 y=0 水平线上
+    # All points are drawn on the horizontal line y=0
     for i in range(n_plot):
         ax_cd.scatter(sorted_ranks[i], 0, color=sorted_colors[i],
                       s=280, zorder=5, edgecolors='black', linewidths=1.2)
-        # 标签在下方
+        # Labels below the points
         ax_cd.text(sorted_ranks[i], -0.12, sorted_llms[i],
                    va='top', ha='center', fontsize=12, fontweight='bold', rotation=15)
-        # 秩值标注
+        # Rank annotations
         ax_cd.text(sorted_ranks[i], 0.08, f'{sorted_ranks[i]:.2f}',
                    va='bottom', ha='center', fontsize=10, color='gray')
 
-    # 连接无显著差异的 LLM 对 (秩差 < CD) — 横线在上方
+    # Connect LLM pairs with no significant difference (rank difference < CD) - line above
     level = 0.22
     for i in range(n_plot):
         for j in range(i + 1, n_plot):
@@ -632,17 +632,17 @@ if has_sp:
 print("\n假设检验完成！")
 
 # ============================================================
-# 8. 生成 3×1 图: (1) 提升率小提琴 (2) Token用量 (3) 调用耗时
+# 8. Generate a 3x1 figure: (1) improvement violin (2) token usage (3) call latency
 # ============================================================
 print("\n生成 LLM 用量与提升率对比图...")
 
-# 筛选有数据的 LLM 变体
+# Filter LLM variants that have data
 available_llms = [l for l in LLM_VARIANTS if llm_data.get(l)]
 n_available = len(available_llms)
 llm_colors_list = [LLM_COLORS[l] for l in available_llms]
 
-# ---- 数据准备 ----
-# Token / Time 数据 (每次调用一条)
+# ---- Data preparation ----
+# Token / time data (one row per call)
 token_data = []
 time_data = []
 for llm_label in available_llms:
@@ -650,7 +650,7 @@ for llm_label in available_llms:
     token_data.append([r['total_tokens'] for r in records])
     time_data.append([r['api_call_time_ms'] for r in records if r['api_call_time_ms'] > 0])
 
-# 提升率数据 (每事件一个值, 仅 vs BC)
+# Improvement data (one value per event, vs BC only)
 imp_bc_data = []
 for llm_label in available_llms:
     imp_bc_data.append(llm_improvement_vs_BC.get(llm_label, []))
@@ -659,7 +659,7 @@ positions = np.arange(1, n_available + 1)
 
 fig, axes = plt.subplots(4, 1, dpi=150, figsize=(12, 10.8))
 
-# ---- 子图1: 各 LLM 相比 BC 的 F+C 提升率 (小提琴图) ----
+# ---- Subplot 1: F+C improvement over BC by LLM (violin plot) ----
 ax1 = axes[0]
 
 vp_bc = ax1.violinplot(imp_bc_data, positions=positions,
@@ -673,7 +673,7 @@ for part in ('cmeans', 'cmedians', 'cbars'):
         vp_bc[part].set_color('black')
         vp_bc[part].set_linewidth(1.0)
 
-# 叠加散点 (jitter)
+# Overlay jittered scatter points
 for i in range(n_available):
     if imp_bc_data[i]:
         jitter = np.random.normal(positions[i], 0.06, size=len(imp_bc_data[i]))
@@ -683,15 +683,15 @@ for i in range(n_available):
 ax1.set_xticks(positions)
 ax1.set_xticklabels(available_llms, fontsize=14)
 ax1.set_ylabel('Improvement rate'+'\n'+'vs. BC (%)', fontsize=15)
-# 不设固定 ylim: vsBC 提升率约 40~49%, 原 set_ylim(50,100) 会把整段数据裁掉, 改为自适应显示
+# No fixed ylim: vs-BC improvement is about 40~49%; the old set_ylim(50,100) clipped all data, so let it auto-scale
 ax1.axhline(y=0, color='gray', linestyle='--', linewidth=1.0, alpha=0.6)
 ax1.grid(axis='y', alpha=0.3)
 
-# 子图标识
+# Subplot label
 ax1.text(-0.08, 1.03, '(a)', transform=ax1.transAxes,
          fontsize=18, fontweight='bold', va='bottom', ha='left')
 
-# 假设检验结果文字标注 (Friedman, 置于子图最下方)
+# Hypothesis test result annotation (Friedman, placed at the bottom of the subplot)
 ht_conclusion = 'No significant difference' if not friedman_significant else 'Significant difference'
 ht_text = (f"Friedman: $\\chi^2$={friedman_stat:.2f}, p={friedman_p:.4f}, "
            f"{ht_conclusion} ($\\alpha$=0.05)")
@@ -699,7 +699,7 @@ ax1.text(0.5, 0.15, ht_text, transform=ax1.transAxes, fontsize=14,
          va='bottom', ha='center', bbox=dict(boxstyle='round,pad=0.4',
          facecolor='white', edgecolor='gray', alpha=0.9))
 
-# ---- 子图2: Total Tokens per Call (小提琴图) ----
+# ---- Subplot 2: total tokens per call (violin plot) ----
 ax2 = axes[1]
 vp2 = ax2.violinplot(token_data, positions=positions, showmeans=True,
                       showmedians=True, widths=0.7)
@@ -725,7 +725,7 @@ ax2.grid(axis='y', alpha=0.3)
 ax2.text(-0.08, 1.03, '(b)', transform=ax2.transAxes,
          fontsize=18, fontweight='bold', va='bottom', ha='left')
 
-# ---- 子图3: API Call Time per Call (小提琴图) ----
+# ---- Subplot 3: API call time per call (violin plot) ----
 ax3 = axes[2]
 vp3 = ax3.violinplot(time_data, positions=positions, showmeans=True,
                       showmedians=True, widths=0.7)
@@ -751,17 +751,17 @@ ax3.grid(axis='y', alpha=0.3)
 ax3.text(-0.08, 1.03, '(c)', transform=ax3.transAxes,
          fontsize=18, fontweight='bold', va='bottom', ha='left')
 
-# ---- 子图4 (d): 同义词扰动下各 LLM 每事件相对 baseline 偏差 (小提琴图, 风格同 (a)) ----
-# 数据: 每(事件,LLM) 的 mean relative deviation from baseline (%) (有正负, 每事件一个值)
-# 上方标注: 每个 LLM 的单一 CoV (std/mean ×100, 跨事件平均), 计算见 results_synonym_boxplot - 副本.py
+# ---- Subplot 4 (d): per-event deviation from baseline under synonym perturbation by LLM (violin, same style as (a)) ----
+# Data: mean relative deviation from baseline (%) per (event, LLM) (signed, one value per event)
+# Top annotation: a single CoV per LLM (std/mean x100, averaged over events); see results_synonym_boxplot for the computation
 ax4 = axes[3]
 
 _syn_data, _syn_events = syn_box.load_synonym_data()
 _syn_baseline = syn_box.load_baseline_data(_syn_events)
 
-# 每(事件,LLM) 的平均相对偏差 (%) = mean([(v-base)/base*100 for v in variants])
+# Mean relative deviation (%) per (event, LLM) = mean([(v-base)/base*100 for v in variants])
 _rel_dev = {}      # {event: {llm: mean_rel_dev%}}
-_cov_per_llm = {}  # {llm: 单一 CoV%}
+_cov_per_llm = {}  # {llm: single CoV %}
 for _llm in syn_box.LLM_NAMES:
     _covs = []
     for _en in _syn_events:
@@ -773,14 +773,14 @@ for _llm in syn_box.LLM_NAMES:
             _rel_dev[_en][_llm] = _rd
         else:
             _rel_dev[_en][_llm] = float('nan')
-        # CoV 用原始 F+C 跨 variant (std/mean×100), 逐事件再平均 -> 每 LLM 单一值
+        # CoV uses raw F+C across variants (std/mean x100), averaged over events -> one value per LLM
         if len(_fv) >= 2:
             _mv = float(np.mean(_fv))
             if _mv > 0:
                 _covs.append(float(np.std(_fv, ddof=1)) / _mv * 100)
     _cov_per_llm[_llm] = float(np.mean(_covs)) if _covs else float('nan')
 
-# 每 LLM 的 per-event 相对偏差列表 (小提琴数据, 每事件一个值)
+# Per-event deviation list per LLM (violin data, one value per event)
 _rd_data = []
 for _llm in syn_box.LLM_NAMES:
     _vals = [_rel_dev.get(_en, {}).get(_llm, float('nan')) for _en in _syn_events]
@@ -788,7 +788,7 @@ for _llm in syn_box.LLM_NAMES:
 
 positions_d = np.arange(1, len(syn_box.LLM_NAMES) + 1)
 
-# 小提琴图 (风格与 (a) 一致)
+# Violin plot (same style as (a))
 vp4 = ax4.violinplot(_rd_data, positions=positions_d, showmeans=True,
                      showmedians=True, widths=0.7)
 for i, body in enumerate(vp4['bodies']):
@@ -800,16 +800,16 @@ for part in ('cmeans', 'cmedians', 'cbars'):
         vp4[part].set_color('black')
         vp4[part].set_linewidth(1.0)
 
-# 叠加散点 (jitter), 与 (a) 一致
+# Overlay jittered scatter points, same as (a)
 for i in range(len(syn_box.LLM_NAMES)):
     if _rd_data[i]:
         jitter = np.random.normal(positions_d[i], 0.06, size=len(_rd_data[i]))
         ax4.scatter(jitter, _rd_data[i], color=LLM_COLORS[syn_box.LLM_NAMES[i]],
                     alpha=0.5, s=25, edgecolors='none')
 
-# 每个 LLM 的单一 CoV 标在小提琴正上方 (顶部对齐)
+# Place each LLM's single CoV directly above its violin (top aligned)
 _ylo, _yhi = ax4.get_ylim()
-ax4.set_ylim(_ylo, _yhi + (_yhi - _ylo) * 0.16)   # 顶部留空间给 CoV 文字
+ax4.set_ylim(_ylo, _yhi + (_yhi - _ylo) * 0.16)   # Leave space at the top for the CoV labels
 for i, _llm in enumerate(syn_box.LLM_NAMES):
     _cv = _cov_per_llm[_llm]
     if np.isnan(_cv):
@@ -829,7 +829,7 @@ ax4.text(-0.08, 1.03, '(d)', transform=ax4.transAxes,
 
 plt.tight_layout()
 
-# 保存到 Results/LLMUsage 文件夹
+# Save to the Results/LLMUsage folder
 fig_dir = os.path.join(project_root, 'Results', 'LLMUsage')
 os.makedirs(fig_dir, exist_ok=True)
 out_fig_path = os.path.join(fig_dir, 'llm_improvement_usage_comparison.png')

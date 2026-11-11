@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-对比不同 LLM 后端下 BCAgent 的控制效果 (F+C 曲线 vs 降雨)。
+Compare the control performance (F+C curves vs rainfall) of BCAgent with different LLM backends.
 
-绘制 BC 基准线 与 所有 LLM 变体的 BCAgent 结果：
-  - step1-BC-control              → BC
-  - step3-BCAgent-control         → DeepSeek-v4
-  - step3-BCAgent-control-GLM     → GLM-4-flash
-  - step3-BCAgent-control-Kimi    → Moonshot-v1-8k
-  - step3-BCAgent-control-MiniMax → MiniMax-M3
+Plots the BC baseline and all LLM BCAgent variants:
+  - step1-BC-control              -> BC
+  - step3-BCAgent-control         -> DeepSeek-v4
+  - step3-BCAgent-control-GLM     -> GLM-4-flash
+  - step3-BCAgent-control-Kimi    -> Moonshot-v1-8k
+  - step3-BCAgent-control-MiniMax -> MiniMax-M3
 
-用法:
+Usage:
     python results_varLLM.py
 """
 
@@ -29,13 +29,13 @@ import datetime
 from matplotlib.gridspec import GridSpec
 from matplotlib import rcParams
 
-# [FIX] 导入 warnings.md 解析函数（用于标记场景中记录的真实预警事件）
+# [FIX] Import the warnings.md parser (to mark real warning events recorded in scenarios)
 try:
     from llm_event_agent import parse_warnings_file
 except ImportError:
     parse_warnings_file = None
 
-# [UPDATED] 从统一配置导入时间参数 (DRL-control/time_config.py)
+# [UPDATED] Import time parameters from the shared configuration (DRL-control/time_config.py)
 _drl_control_root = os.path.join(_sys_parent, 'DRL-control')
 if _drl_control_root not in sys.path:
     sys.path.insert(0, _drl_control_root)
@@ -52,7 +52,7 @@ config = {
 rcParams.update(config)
 
 # ============================================================
-# LLM 变体配置
+# LLM variant configuration
 # ============================================================
 LLM_VARIANTS = {
     'DeepSeek-v4':   'step3-BCAgent-control',
@@ -65,7 +65,7 @@ project_root = _sys_parent
 scenarios_dir = os.path.join(project_root, 'Scenarios', 'NMC_Events_2015_2025')
 
 # ============================================================
-# 1. 发现所有场景
+# 1. Discover all scenarios
 # ============================================================
 nmc_scenario_names = sorted([
     d for d in os.listdir(scenarios_dir)
@@ -86,7 +86,7 @@ print(f"其中 {len(scenario_names)} 个场景有 BC 结果")
 print(f"LLM 变体: {list(LLM_VARIANTS.keys())}")
 
 # ============================================================
-# 2. 加载场景降雨数据
+# 2. Load scenario rainfall data
 # ============================================================
 scenario_rain = {}
 scenario_rain_raw = {}
@@ -131,7 +131,7 @@ for folder_name in scenario_names:
         scenario_rain_raw[folder_name] = ([], np.array([]))
 
 # ============================================================
-# 3. 加载 BC 与所有 LLM BCAgent 结果
+# 3. Load BC and all LLM BCAgent results
 # ============================================================
 results_BC = {}
 results_LLM = {}   # {llm_label: {scenario_name: result_dict}}
@@ -155,7 +155,7 @@ for llm_label, dir_name in LLM_VARIANTS.items():
             print(f"  警告: 未找到 {llm_label} 结果: {llm_path}")
 
 # ============================================================
-# 4. 输出 Flooding + CSO 汇总表
+# 4. Output the Flooding + CSO summary table
 # ============================================================
 print("\n" + "=" * 80)
 print("表: Flooding + CSO 结果汇总 (BC + 各 LLM BCAgent)")
@@ -200,7 +200,7 @@ for name in scenario_names:
 df_table = pd.DataFrame(table_data)
 print(df_table.to_string(index=False, float_format=lambda x: f'{x:.2f}'))
 
-# 输出平均值
+# Output the averages
 print("\n--- 平均值 ---")
 bc_f_vals_avg = [v for v in table_data['BC_Flooding'] if not np.isnan(v)]
 bc_c_vals_avg = [v for v in table_data['BC_CSO'] if not np.isnan(v)]
@@ -215,27 +215,27 @@ for llm_label in LLM_VARIANTS:
     if fc_vals:
         print(f"{llm_label:<13s} Flooding: {np.mean(f_vals):.2f}, CSO: {np.mean(c_vals):.2f}, F+C: {np.mean(fc_vals):.2f}, vsBC: {np.mean(imp_bc_vals):.2f}%")
 
-# 保存 CSV
+# Save the CSV
 results_dir = os.path.join(project_root, 'Results')
 os.makedirs(results_dir, exist_ok=True)
 df_table.to_csv(os.path.join(results_dir, 'table_FC_varLLM.csv'), index=False)
 print(f"\n表格已保存: {os.path.join(results_dir, 'table_FC_varLLM.csv')}")
 
 # ============================================================
-# 5. F+C 曲线 vs 降雨 (每个场景) — BC + 所有 LLM BCAgent
+# 5. F+C curve vs rainfall (per scenario) - BC + all LLM BCAgents
 # ============================================================
 print("\n生成 F+C 曲线 vs 降雨 (varLLM)...")
 
-# 颜色配置: BC + 4 个 LLM (与 results_FC.py 一致)
+# Color configuration: BC + 4 LLMs (same as results_FC.py)
 COLORS = {
-    'BC': '#8b0000',               # 深红色 (与 results_FC.py ccf['BC'] 一致)
-    'DeepSeek-v4': '#2e7d32',      # 深绿色 (与 results_FC.py AgenticAI-Control 一致)
-    'GLM-4-flash': '#1f77b4',      # 蓝色
-    'Moonshot-v1-8k': '#9467bd',     # 紫色
-    'MiniMax-M3': '#ff7f0e',       # 橙色
+    'BC': '#8b0000',               # Dark red (same as results_FC.py ccf['BC'])
+    'DeepSeek-v4': '#2e7d32',      # Dark green (same as AgenticAI-Control in results_FC.py)
+    'GLM-4-flash': '#1f77b4',      # Blue
+    'Moonshot-v1-8k': '#9467bd',     # Purple
+    'MiniMax-M3': '#ff7f0e',       # Orange
 }
 
-# 线型配置
+# Line style configuration
 LINESTYLES = {
     'BC': '-',
     'DeepSeek-v4': '--',
@@ -255,7 +255,7 @@ WARNING_COLORS = {
     '未知': '#333333',
 }
 
-# 只取有 BC 结果的场景 (最多10个)
+# Keep only scenarios with BC results (at most 10)
 valid_scenario_names = [n for n in scenario_names if n in results_BC][:10]
 
 n_cols = 2
@@ -278,26 +278,26 @@ for idx, name in enumerate(valid_scenario_names):
     if sim_start is None:
         sim_start = datetime.datetime(2020, 1, 1, 2, 0, 0)
 
-    # F+C 曲线 (以 BC 数据长度作为统一基准)
+    # F+C curves (BC data length as the common reference)
     bc_fc_raw = np.array(results_BC[name]['flooding'][1:]) + np.array(results_BC[name]['CSO'][1:])
     fc_data_len = len(bc_fc_raw)
 
-    # 降雨数据对齐到 FC 长度
+    # Align rainfall data to the FC length
     if len(rain) > 0:
         rain_aligned = rain[:fc_data_len] if len(rain) >= fc_data_len else \
             np.pad(rain, (0, fc_data_len - len(rain)))
     else:
         rain_aligned = np.zeros(fc_data_len)
 
-    # 构建时间轴 (每5步聚合一次)
+    # Build the time axis (aggregate every 5 steps)
     fc_plot_idx = np.arange(0, fc_data_len, 5)
     n_agg = len(fc_plot_idx)
     dt_agg = [sim_start + datetime.timedelta(minutes=5 * 5 * i) for i in range(n_agg)]
 
-    # BC 曲线
+    # BC curve
     bc_fc = bc_fc_raw[fc_plot_idx] / 1000
 
-    # ---- 降雨柱状图 (右轴) ----
+    # ---- Rainfall bars (right axis) ----
     ax_rain = ax.twinx()
     ax_rain.set_zorder(0)
     ax.set_zorder(1)
@@ -317,7 +317,7 @@ for idx, name in enumerate(valid_scenario_names):
     ax.set_xlim(dt_agg[0] - datetime.timedelta(hours=1),
                 dt_agg[-1] + datetime.timedelta(hours=1))
 
-    # 只显示最初、中间、结束三个时间节点
+    # Show only the first, middle and last time ticks
     n_ticks = len(dt_agg)
     tick_positions = [0, n_ticks // 2, n_ticks - 1]
     ax.set_xticks([dt_agg[i] for i in tick_positions])
@@ -326,27 +326,27 @@ for idx, name in enumerate(valid_scenario_names):
     ax.set_ylabel('Flooding and CSO\n(10³ m³)', fontsize=15)
     ax.tick_params(axis='both', labelsize=14)
 
-    # ---- 绘制 F+C 曲线 ----
-    # BC 曲线
+    # ---- Plot the F+C curves ----
+    # BC curve
     ax.plot(dt_agg, bc_fc, color=COLORS['BC'], alpha=0.35, linewidth=2.0,
             linestyle=LINESTYLES['BC'], zorder=5)
 
-    # 各 LLM BCAgent 曲线
+    # Curves for each LLM BCAgent
     llm_labels_ordered = list(LLM_VARIANTS.keys())
     for llm_label in llm_labels_ordered:
         if name in results_LLM[llm_label]:
             llm_fc_raw = np.array(results_LLM[llm_label][name]['flooding'][1:]) \
                          + np.array(results_LLM[llm_label][name]['CSO'][1:])
-            # 对齐到统一长度
+            # Align to a common length
             min_len = min(len(llm_fc_raw), fc_data_len)
             fc_idx = np.arange(0, min_len, 5)
             llm_fc = llm_fc_raw[fc_idx] / 1000
-            # 补齐时间轴
+            # Pad the time axis
             llm_dt = dt_agg[:len(fc_idx)]
             ax.plot(llm_dt, llm_fc, color=COLORS[llm_label], alpha=0.55, linewidth=2.0,
                     linestyle=LINESTYLES[llm_label], zorder=5)
 
-    # ---- LLM Event 垂直线 ----
+    # ---- LLM Event vertical lines ----
     if parse_warnings_file is not None:
         warnings_md_candidates = glob.glob(os.path.join(scenarios_dir, name, '*_warnings.md'))
         if warnings_md_candidates:
@@ -363,7 +363,7 @@ for idx, name in enumerate(valid_scenario_names):
     short_title = f'Event{idx + 1}'
     ax.set_title(short_title, fontsize=16)
 
-# ---- 统一图例 ----
+# ---- Shared legend ----
 from matplotlib.lines import Line2D
 unified_handles = [
     Line2D([0], [0], color=COLORS['BC'], linewidth=2.0,
@@ -382,7 +382,7 @@ fig.legend(handles=unified_handles, fontsize=14, loc='lower center',
 
 fig.subplots_adjust(bottom=0.12)
 
-# 保存图片到 Results/FigControlperformance 文件夹
+# Save the figure to Results/FigControlperformance
 fig_dir = os.path.join(project_root, 'Results', 'FigControlperformance')
 os.makedirs(fig_dir, exist_ok=True)
 out_fig_path = os.path.join(fig_dir, 'varLLM_FC_curve_vs_rainfall.png')

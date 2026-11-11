@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-对比 BC、Agent(DeepSeek)、MPC(perfect) 三种方法在每场降雨过程中
-开启泵的总数量曲线。
+Compare the total number of pumps on over each rainfall event for three methods:
+BC, Agent (DeepSeek) and MPC (perfect).
 
-布局: 5 行 2 列, 一场降雨一个子图 (类比 results_FC_full.py)
-每个子图:
-  - 降雨柱状图 (右轴倒置, alpha=0.4)
-  - 三种方法开启泵总数量阶梯曲线 (左轴, 0~7)
-全图统一图例置于底部。
+Layout: 5 rows x 2 columns, one subplot per rainfall event (cf. results_FC_full.py).
+Each subplot:
+  - Rainfall bars (inverted right axis, alpha=0.4)
+  - Stair curves of total pumps on for the three methods (left axis, 0~7)
+A single shared legend is placed at the bottom.
 
-输出: Results/FigAction/FigAction.png
+Output: Results/FigAction/FigAction.png
 
-方法:
-  - step1-BC-control          -> BC
-  - step3-BCAgent-control     -> Agent (DeepSeek)
-  - step2-MPC-control-best -> MPC (perfect 预测降雨)
+Methods:
+  - step1-BC-control             -> BC
+  - step3-BCAgent-control        -> Agent (DeepSeek)
+  - step2-MPC-control-best       -> MPC (perfect rainfall forecast)
 
-用法:
+Usage:
     python results_Action_total.py
 """
 
@@ -38,7 +38,7 @@ import matplotlib.ticker as mticker
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-# 从统一配置导入时间参数
+# Import time parameters from the shared configuration
 _drl_control_root = os.path.join(_sys_parent, 'DRL-control')
 if _drl_control_root not in sys.path:
     sys.path.insert(0, _drl_control_root)
@@ -54,7 +54,7 @@ config = {
 rcParams.update(config)
 
 # ============================================================
-# 方法配置: 方法名 -> (目录名, 结果文件前缀, action 字段名, 显示标签)
+# Method config: name -> (directory, result file prefix, action field, display label)
 # ============================================================
 METHODS = {
     'BC':    ('step1-BC-control',       'bc_results_',       'action',           'BC'),
@@ -62,34 +62,34 @@ METHODS = {
     'MPC':   ('step2-MPC-control-best', 'mpc_results_',      'action',           'MPC'),
 }
 
-# 泵数量 (7台: CC-S1/S2/R1/R2, JK-S/R1/R2), 二进制 0/1 -> 总和 0~7
+# Pump count (7 units: CC-S1/S2/R1/R2, JK-S/R1/R2), binary 0/1 -> sum 0~7
 NUM_PUMPS = 7
 
-# 颜色配置 (与 results_FC_full.py / results_varLLM.py 风格一致)
+# Color configuration (same style as results_FC_full.py / results_varLLM.py)
 COLORS = {
-    'BC':    '#8b0000',   # 深红
-    'Agent': '#2e7d32',   # 深绿 (AgenticAI-Control, DeepSeek)
-    'MPC':   '#b8860b',   # 暗金 (perfect 预测)
+    'BC':    '#8b0000',   # Dark red
+    'Agent': '#2e7d32',   # Dark green (AgenticAI-Control, DeepSeek)
+    'MPC':   '#b8860b',   # Dark gold (perfect forecast)
 }
 
-# 线型配置 (BC 实线, 其余两个控制方法虚线)
+# Line styles (BC solid, the other two methods dashed)
 LINESTYLES = {
     'BC':    '-',
     'Agent': '--',
     'MPC':   '--',
 }
 
-# 绘制顺序 (后绘制的在上层): 底 -> 顶
+# Drawing order (later on top): bottom -> top
 PLOT_ORDER = ['MPC', 'BC', 'Agent']
 
-# 图例顺序 (与 results_FC_full.py 一致)
+# Legend order (same as results_FC_full.py)
 LEGEND_ORDER = ['BC', 'MPC', 'Agent']
 
 project_root = _sys_parent
 scenarios_dir = os.path.join(project_root, 'Scenarios', 'NMC_Events_2015_2025')
 
 # ============================================================
-# 1. 发现所有场景 (与 results_varLLM.py 一致)
+# 1. Discover all scenarios (same as results_varLLM.py)
 # ============================================================
 nmc_scenario_names = sorted([
     d for d in os.listdir(scenarios_dir)
@@ -109,7 +109,7 @@ print(f"共 {len(scenario_names)} 个场景")
 print(f"方法: {list(METHODS.keys())}")
 
 # ============================================================
-# 2. 加载场景 sim_start 与降雨数据 (用于时间轴与右轴降雨柱状图)
+# 2. Load scenario sim_start and rainfall data (for the time axis and right-axis rainfall bars)
 # ============================================================
 scenario_sim_start = {}
 scenario_rain_raw = {}   # {scenario_name: (times_list, mm_per_hr_array)}
@@ -126,7 +126,7 @@ for folder_name in scenario_names:
         sim_start_val = compute_sim_start_from_readme(readme_content, event_date_str)
         scenario_sim_start[folder_name] = sim_start_val
 
-    # 加载降雨数据 (优先 *_FULL_SWMM.npy, 与 results_FC_full.py 一致)
+    # Load rainfall data (prefer *_FULL_SWMM.npy, same as results_FC_full.py)
     full_npy_files = glob.glob(os.path.join(folder_path, '*_FULL_SWMM.npy'))
     orig_npy_files = [f for f in glob.glob(os.path.join(folder_path, '*_SWMM.npy'))
                       if not f.endswith('_FULL_SWMM.npy')]
@@ -143,7 +143,7 @@ for folder_name in scenario_names:
     scenario_rain_raw[folder_name] = ([], np.array([]))
 
 # ============================================================
-# 3. 加载所有方法结果
+# 3. Load results for all methods
 # ============================================================
 results_methods = {}   # {method_label: {scenario_name: result_dict}}
 
@@ -158,22 +158,22 @@ for method_label, (dir_name, file_prefix, _action_key, _display_label) in METHOD
             print(f"  警告: 未找到 {method_label} 结果: {m_path}")
 
 # ============================================================
-# 4. 绘制: 5 行 2 列, 一场降雨一个子图 (类比 results_FC_full.py)
-#    每个子图: 降雨柱状图 (右轴倒置) + 三种方法开启泵总数量阶梯曲线 (左轴)
-#    全图统一图例置于底部
+# 4. Plot: 5 rows x 2 columns, one subplot per rainfall event (cf. results_FC_full.py)
+#    Each subplot: rainfall bars (inverted right axis) + stair curves of total pumps on (left axis)
+#    A single shared legend is placed at the bottom of the figure
 # ============================================================
 print("\n生成 [BC vs Agent(DeepSeek) vs MPC(perfect)] 开启泵总数量曲线 (5行2列)...")
 
 dt_delta = datetime.timedelta(minutes=INTERVAL_MIN)
 n_cols = 2
-# 最多 5 行, 每行 2 列 -> 最多 10 个子图
+# At most 5 rows x 2 columns -> at most 10 subplots
 n_rows = min(5, max(1, (len(scenario_names) + n_cols - 1) // n_cols))
 
 fig = plt.figure(dpi=150, figsize=(13, 2.9 * n_rows))
 gs = GridSpec(n_rows, n_cols, figure=fig, hspace=0.45, wspace=0.45)
 gs.update(top=0.95, bottom=0.075)
 
-# 取有数据的场景, 最多 n_rows*n_cols 个
+# Take scenarios with data, up to n_rows*n_cols
 valid_scenarios = [n for n in scenario_names
                    if any(n in results_methods[m] for m in METHODS)][:n_rows * n_cols]
 
@@ -184,7 +184,7 @@ for idx, name in enumerate(valid_scenarios):
 
     sim_start = scenario_sim_start.get(name, datetime.datetime(2020, 1, 1, 2, 0, 0))
 
-    # 收集每个方法的 action -> 开启泵总数量 (7台二进制泵求和)
+    # Collect each method's action -> total pumps on (sum of 7 binary pumps)
     method_data = {}
     max_len = 0
     for method_label in METHODS:
@@ -198,7 +198,7 @@ for idx, name in enumerate(valid_scenarios):
         action_arr = np.array(actions)  # shape (T, 7)
         if action_arr.ndim != 2 or action_arr.shape[1] == 0:
             continue
-        # 每个时间步 7 台泵状态求和 -> 开启泵总数量 (0~7)
+        # Sum the 7 pump states at each step -> total pumps on (0~7)
         pump_count = action_arr.sum(axis=1).astype(int)  # shape (T,)
         method_data[method_label] = {
             'pump_count': pump_count,
@@ -212,7 +212,7 @@ for idx, name in enumerate(valid_scenarios):
         print(f"  跳过 {name}: action 数据为空")
         continue
 
-    # 时间轴 (每步 5 分钟)
+    # Time axis (5 minutes per step)
     time_axis = [sim_start + dt_delta * i for i in range(max_len)]
     _rain_times, _rain_vals = scenario_rain_raw.get(name, ([], np.array([])))
     tick_idx = [0, max_len // 2, max_len - 1]
@@ -220,13 +220,13 @@ for idx, name in enumerate(valid_scenarios):
     x_lo = time_axis[0] - datetime.timedelta(minutes=10)
     x_hi = time_axis[-1] + datetime.timedelta(minutes=10)
 
-    # ---- 降雨柱状图 (右轴, 倒置, 参考 results_FC_full.py) ----
+    # ---- Rainfall bars (right axis, inverted, cf. results_FC_full.py) ----
     ax_rain = ax.twinx()
     ax_rain.set_zorder(0)
     ax.set_zorder(1)
-    ax.patch.set_visible(False)  # 隐藏主轴背景, 让降雨 bar 透出
+    ax.patch.set_visible(False)  # Hide the main axis background so the rainfall bars show through
     if len(_rain_vals) > 0:
-        bar_width = 1 / 24  # 1 小时宽度 (以天为单位)
+        bar_width = 1 / 24  # 1-hour width (in days)
         ax_rain.bar(_rain_times, _rain_vals, width=bar_width, color='steelblue',
                     edgecolor='navy', linewidth=0.3, alpha=0.4, zorder=1)
         ax_rain.set_ylabel('Rainfall intensity (mm/h)', fontsize=12, color='black')
@@ -234,11 +234,11 @@ for idx, name in enumerate(valid_scenarios):
         ax_rain.invert_yaxis()
         _y_max_rain = _rain_vals.max() if _rain_vals.max() > 0 else 10
         ax_rain.set_ylim(_y_max_rain * 2.0, 0)
-        # 显式设置右轴刻度 (避免与左轴 0~7 泵数量刻度混淆)
+        # Set right-axis ticks explicitly (avoid confusion with the left 0~7 pump-count axis)
         ax_rain.yaxis.set_major_locator(mticker.MaxNLocator(nbins=5, integer=True))
     ax_rain.set_xlim(x_lo, x_hi)
 
-    # ---- 各方法开启泵总数量阶梯曲线 (左轴) ----
+    # ---- Stair curves of total pumps on per method (left axis) ----
     for method_label in PLOT_ORDER:
         md = method_data.get(method_label)
         if md is None:
@@ -261,7 +261,7 @@ for idx, name in enumerate(valid_scenarios):
     ax.grid(True, axis='y', alpha=0.3, linestyle='--', zorder=0)
     ax.set_title(f'Event{idx + 1}', fontsize=16)
 
-# ---- 统一图例置于全图底部 (曲线 + 降雨), 顺序: BC, MPC, Agent, Rainfall ----
+# ---- Shared legend at the bottom (curves + rainfall), order: BC, MPC, Agent, Rainfall ----
 unified_handles = []
 for method_label in LEGEND_ORDER:
     unified_handles.append(
@@ -278,10 +278,10 @@ fig.legend(handles=unified_handles, fontsize=16, loc='lower center',
            ncol=len(unified_handles), frameon=True, fancybox=True,
            framealpha=0.95, bbox_to_anchor=(0.5, 0.015))
 
-# 收紧底部边距, 让 legend 更靠近图主体
+# Tighten the bottom margin to bring the legend closer to the plots
 fig.subplots_adjust(bottom=0.075)
 
-# 保存到 Results/FigPerformanceAction/FigAction/FigAction.png
+# Save to Results/FigPerformanceAction/FigAction/FigAction.png
 fig_dir = os.path.join(project_root, 'Results', 'FigPerformanceAction', 'FigAction')
 os.makedirs(fig_dir, exist_ok=True)
 out_path = os.path.join(fig_dir, 'FigAction.png')

@@ -1,30 +1,30 @@
-"""结果可视化: 各暴雨事件的累计溢流+CSO (F+C) 曲线与汇总表。
+"""Result visualization: cumulative flooding + CSO (F+C) curves and summary tables for each rainstorm event.
 
-用途
-----
-按事件绘制"溢流量 + CSO 排放量"累计曲线, 对比三种控制策略:
-    BC (规则控制) / MPC (模型预测控制) / AgenticAI-BC (规则 + LLM 调整)。
+Purpose
+-------
+Plot cumulative "flooding + CSO discharge" curves per event to compare three control strategies:
+    BC (rule control) / MPC (model predictive control) / AgenticAI-BC (rule + LLM adjustment).
 
-输入
-----
-Scenarios/NMC_Events_2015_2025/<事件>/*_FULL_SWMM.npy   降雨 (用于上方面板)
-Scenarios/NMC_Events_2015_2025/<事件>/README.md         事件起始时间
+Inputs
+------
+Scenarios/NMC_Events_2015_2025/<event>/*_FULL_SWMM.npy   rainfall (for the upper panel)
+Scenarios/NMC_Events_2015_2025/<event>/README.md         event start time
 DRL-control/step1-BC-control/results/bc_results_*.npy
 DRL-control/step2-MPC-control-usefull/results/mpc_results_*.npy
 DRL-control/step3-BCAgent-control/results/bc_agent_results_*.npy
 
-输出
-----
-Results/FigControlperformance/FC_curve_vs_rainfall.png   累计 F+C 曲线图
-Results/table_FC_NMC.csv                                 事件级汇总指标
+Outputs
+-------
+Results/FigControlperformance/FC_curve_vs_rainfall.png   cumulative F+C curves
+Results/table_FC_NMC.csv                                 per-event summary metrics
 
-说明
-----
-- 所有曲线的数据长度以 BC 的 F+C 序列为基准对齐;
-- 本脚本不依赖 PPO / DirectAgent 结果, 单独运行即可出图。
+Notes
+-----
+- All curves are aligned to the length of the BC F+C series;
+- This script does not depend on PPO / DirectAgent results and can be run standalone.
 
-运行方式
---------
+Usage
+-----
     python results_FC.py
 """
 
@@ -44,13 +44,13 @@ import datetime
 from matplotlib.gridspec import GridSpec
 from matplotlib import rcParams
 
-# [FIX] 导入 warnings.md 解析函数（用于标记场景中记录的真实预警事件）
+# [FIX] Import the warnings.md parser (to mark real warning events recorded in scenarios)
 try:
     from llm_event_agent import parse_warnings_file
 except ImportError:
     parse_warnings_file = None
 
-# [UPDATED] 从统一配置导入时间参数 (DRL-control/time_config.py)
+# [UPDATED] Import time parameters from the shared configuration (DRL-control/time_config.py)
 _drl_control_root = os.path.join(_sys_parent, 'DRL-control')
 if _drl_control_root not in sys.path:
     sys.path.insert(0, _drl_control_root)
@@ -67,26 +67,26 @@ config = {
 rcParams.update(config)
 
 # ============================================================
-# 1. 发现所有场景 (从 Scenarios/NMC_Events_2015_2025)
+# 1. Discover all scenarios (from Scenarios/NMC_Events_2015_2025)
 # ============================================================
 project_root = _sys_parent
 scenarios_dir = os.path.join(project_root, 'Scenarios', 'NMC_Events_2015_2025')
 
-# 从 Scenarios 目录获取所有场景文件夹名
+# Get scenario folder names from the Scenarios directory
 nmc_scenario_names = sorted([
     d for d in os.listdir(scenarios_dir)
     if os.path.isdir(os.path.join(scenarios_dir, d))
 ])
 
-# 从 BC results 中获取已有结果的场景名，只保留在 NMC 目录中存在的
+# Get scenario names from BC results and keep only those present in the NMC directory
 bc_results_dir = os.path.join(project_root, 'DRL-control', 'step1-BC-control', 'results')
 bc_scenario_files = sorted(glob.glob(os.path.join(bc_results_dir, 'bc_results_*.npy')))
 scenario_names = []
 for f in bc_scenario_files:
     basename = os.path.basename(f)
-    # bc_results_Event_01_2015-06-02_暴雨蓝色.npy -> Event_01_2015-06-02_暴雨蓝色
+    # bc_results_<event>.npy -> <event>
     name = basename.replace('bc_results_', '').replace('.npy', '')
-    # 只保留在 NMC_Events_2015_2025 目录中存在的场景
+    # Keep only scenarios present in the NMC_Events_2015_2025 directory
     if name in nmc_scenario_names:
         scenario_names.append(name)
 
@@ -97,24 +97,24 @@ for s in scenario_names:
 
 
 # ============================================================
-# 2. 加载场景降雨数据 (从 Scenarios/NMC_Events_2015_2025 目录)
-#    新格式: _SWMM.npy, shape=(72,2) → [elapsed_hours, mm/hr]
-#    转换为 mm/5min (mm/hr / 12)
+# 2. Load scenario rainfall data (from Scenarios/NMC_Events_2015_2025)
+#    New format: _SWMM.npy, shape=(72,2) -> [elapsed_hours, mm/hr]
+#    Convert to mm/5min (mm/hr / 12)
 # ============================================================
-scenario_rain = {}  # {scenario_name: rain_array (hours*12,), 单位: mm/5min} (保留用于FC对齐)
-scenario_rain_raw = {}  # {scenario_name: (times_list, mm_per_hr_array)} 原始降雨数据(用于绘图,与rainfall event一致)
-scenario_sim_start = {}  # {scenario_name: datetime} 模拟起始时间
+scenario_rain = {}  # {scenario_name: rain_array (hours*12,), unit: mm/5min} (kept for FC alignment)
+scenario_rain_raw = {}  # {scenario_name: (times_list, mm_per_hr_array)} raw rainfall data (for plotting, same as rainfall event)
+scenario_sim_start = {}  # {scenario_name: datetime} simulation start time
 for folder_name in scenario_names:
     folder_path = os.path.join(scenarios_dir, folder_name)
-    # [UPDATED] 优先读取 *_FULL_SWMM.npy (含完整 pre+rain+post 窗口)
+    # [UPDATED] Prefer *_FULL_SWMM.npy (complete pre+rain+post window)
     full_npy_files = glob.glob(os.path.join(folder_path, '*_FULL_SWMM.npy'))
     orig_npy_files = [f for f in glob.glob(os.path.join(folder_path, '*_SWMM.npy'))
                       if not f.endswith('_FULL_SWMM.npy')]
     npy_files = full_npy_files if full_npy_files else orig_npy_files
 
-    # [FIX] 从 README.md "数据窗口" 解析真实数据起点计算模拟起始时间
-    # (原始数据第0行=数据窗口起点; FULL数据第0行=数据窗口起点-PRE_HOURS)
-    # 回退: event_date 08:00 - PRE_HOURS (旧逻辑)
+    # [FIX] Parse the real data start from the README "data window" to compute the simulation start
+    # (row 0 of the raw data = data window start; row 0 of FULL data = data window start - PRE_HOURS)
+    # Fallback: event_date 08:00 - PRE_HOURS (legacy logic)
     readme_path = os.path.join(folder_path, 'README.md')
     if os.path.exists(readme_path):
         with open(readme_path, 'r', encoding='utf-8') as f:
@@ -131,8 +131,8 @@ for folder_name in scenario_names:
             scenario_rain[folder_name] = np.array([])
             scenario_rain_raw[folder_name] = ([], np.array([]))
             continue
-        # 将 mm/hr 转换为 mm/5min: 每小时均匀分配到12个5分钟步
-        # [FIX] 直接用数组行数计算 hours，与三个 main 文件保持一致
+        # Convert mm/hr to mm/5min: distribute each hour evenly over 12 five-minute steps
+        # [FIX] Compute hours directly from the array row count, consistent with the three main files
         hours = swmm_data.shape[0]
         rain_array = np.zeros(hours * 12)
         for j in range(len(swmm_data)):
@@ -140,7 +140,7 @@ for folder_name in scenario_names:
             rain_array[j * 12:(j + 1) * 12] = mm_per_5min
         scenario_rain[folder_name] = rain_array
         
-        # [NEW] 保存原始 mm/hr 数据 (与 results_rainfall_event.py 完全一致)
+        # [NEW] Keep the raw mm/hr data (identical to results_rainfall_event.py)
         elapsed_hours = swmm_data[:, 0]
         mm_per_hr = swmm_data[:, 1]
         times_raw = [scenario_sim_start.get(folder_name, datetime.datetime(2020, 1, 1, 2, 0, 0)) + datetime.timedelta(hours=float(h)) for h in elapsed_hours]
@@ -151,7 +151,7 @@ for folder_name in scenario_names:
         scenario_rain_raw[folder_name] = ([], np.array([]))
 
 # ============================================================
-# 3. 加载 BC、MPC、AgenticAI-BC (规则控制 + LLM事件驱动调整) 结果
+# 3. Load BC, MPC and AgenticAI-BC (rule control + LLM event-driven adjustment) results
 # ============================================================
 results_BC = {}
 results_MPC = {}
@@ -178,7 +178,7 @@ for name in scenario_names:
         print(f"  警告: 未找到 AgenticAI-BC 结果: {bcagent_agentic_path}")
 
 # ============================================================
-# 4. 输出 Flooding + CSO 汇总表
+# 4. Output the Flooding + CSO summary table
 # ============================================================
 print("\n" + "=" * 80)
 print("表: Flooding + CSO 结果汇总")
@@ -189,7 +189,7 @@ table_data = {
     'BC_Flooding': [],
     'BC_CSO': [],
     'BC_F+C': [],
-    'MPC_Flooding': [],      # MPC (PSO + SWMM 预测滚动时域控制)
+    'MPC_Flooding': [],      # MPC (PSO + SWMM predictive receding-horizon control)
     'MPC_CSO': [],
     'MPC_F+C': [],
     'MPCvBC_Improve': [],
@@ -208,7 +208,7 @@ for name in scenario_names:
     bc_cso = results_BC[name]['CSO'][-1]
     bc_fc = bc_flood + bc_cso
 
-    # MPC (PSO + SWMM 预测滚动时域控制)
+    # MPC (PSO + SWMM predictive receding-horizon control)
     has_mpc = name in results_MPC
     if has_mpc:
         mpc_flood = results_MPC[name]['flooding'][-1]
@@ -221,7 +221,7 @@ for name in scenario_names:
         mpc_fc = float('nan')
         imp_mpc_vs_bc = float('nan')
 
-    # BC + AgenticAI (AgenticAI-BC: 规则控制 + LLM事件驱动调整)
+    # BC + AgenticAI (AgenticAI-BC: rule control + LLM event-driven adjustment)
     has_bcagent = name in results_BCAgent_Agentic
     if has_bcagent:
         bcag_flood = results_BCAgent_Agentic[name]['flooding'][-1]
@@ -253,7 +253,7 @@ for name in scenario_names:
 df_table = pd.DataFrame(table_data)
 print(df_table.to_string(index=False, float_format=lambda x: f'{x:.2f}'))
 
-# 输出平均值
+# Output the averages
 print("\n--- 平均值 ---")
 bc_f_avg = np.mean(table_data['BC_Flooding'])
 bc_c_avg = np.mean(table_data['BC_CSO'])
@@ -261,7 +261,7 @@ bc_fc_avg = np.mean(table_data['BC_F+C'])
 
 print(f"BC         Flooding: {bc_f_avg:.2f}, CSO: {bc_c_avg:.2f}, F+C: {bc_fc_avg:.2f}")
 
-# MPC 平均
+# MPC average
 mpc_f_vals = [v for v in table_data['MPC_Flooding'] if not np.isnan(v)]
 mpc_c_vals = [v for v in table_data['MPC_CSO'] if not np.isnan(v)]
 mpc_fc_vals = [v for v in table_data['MPC_F+C'] if not np.isnan(v)]
@@ -271,7 +271,7 @@ if mpc_fc_vals:
     print(f"MPC          Flooding: {np.mean(mpc_f_vals):.2f}, CSO: {np.mean(mpc_c_vals):.2f}, F+C: {np.mean(mpc_fc_vals):.2f}")
     print(f"MPC vs BC  改善率: {np.mean(mpc_vs_bc_vals):.2f}%")
 
-# AgenticAI-BC 平均
+# AgenticAI-BC average
 bcag_f_vals = [v for v in table_data['BCAg_Flooding'] if not np.isnan(v)]
 bcag_c_vals = [v for v in table_data['BCAg_CSO'] if not np.isnan(v)]
 bcag_fc_vals = [v for v in table_data['BCAg_F+C'] if not np.isnan(v)]
@@ -284,7 +284,7 @@ if bcag_fc_vals:
     if bcag_vs_mpc_vals:
         print(f"AgenticAI-BC vs MPC 改善率: {np.mean(bcag_vs_mpc_vals):.2f}%")
 
-# 保存 CSV 到 Results 文件夹
+# Save the CSV to the Results folder
 results_dir = os.path.join(project_root, 'Results')
 os.makedirs(results_dir, exist_ok=True)
 df_table.to_csv(os.path.join(results_dir, 'table_FC_NMC.csv'), index=False)
@@ -292,18 +292,18 @@ print(f"\n表格已保存: {os.path.join(results_dir, 'table_FC_NMC.csv')}")
 
 
 # ============================================================
-# 6. F+C 曲线 vs 降雨 (每个场景)
-#    布局: 5行2列, 降雨数据画在顶部
+# 6. F+C curve vs rainfall (per scenario)
+#    Layout: 5 rows x 2 columns, rainfall data drawn at the top
 # ============================================================
 print("\n生成 F+C 曲线 vs 降雨...")
 
 ccf = {
-    'BC': "#8b0000",      # 深红色 (BC)
-    'MPC': "#b8860b",     # 暗金黄色 (PSO + SWMM 预测滚动时域控制)
-    'AgenticAI-BC': "#2e7d32",  # 深绿色 (BC规则控制+LLM事件驱动, DeepSeek)
+    'BC': "#8b0000",      # Dark red (BC)
+    'MPC': "#b8860b",     # Dark gold (PSO + SWMM predictive receding-horizon control)
+    'AgenticAI-BC': "#2e7d32",  # Dark green (BC rule control + LLM event-driven, DeepSeek)
 }
 
-# Warning level colors (与 results_rainfall_event.py 完全一致)
+# Warning level colors (identical to results_rainfall_event.py)
 WARNING_COLORS = {
     '蓝色': '#1f77b4',
     '黄色': '#ff8c00',
@@ -324,7 +324,7 @@ WARNING_LEVEL_LABELS = {
     '未知': 'Unknown',
 }
 
-# 只取有 BC 结果的场景 (最多10个用于绘图)
+# Keep only scenarios with BC results (at most 10 for plotting)
 valid_scenario_names = [n for n in scenario_names if n in results_BC][:10]
 
 # Track which warning levels appear (for global legend)
@@ -332,14 +332,14 @@ all_warning_levels_seen = set()
 
 n_cols = 2
 n_rows = max(1, (len(valid_scenario_names) + n_cols - 1) // n_cols)
-# 确保最多5行
+# Use at most 5 rows
 n_rows = min(5, n_rows)
 
 fig = plt.figure(dpi=150, figsize=(12, 2.8 * n_rows))
 gs = GridSpec(n_rows, n_cols, figure=fig, hspace=0.4, wspace=0.5)
 
-pre_steps = PRE_HOURS * 60 // 5   # 72 步
-post_steps = POST_HOURS * 60 // 5  # 216 步
+pre_steps = PRE_HOURS * 60 // 5   # 72 steps
+post_steps = POST_HOURS * 60 // 5  # 216 steps
 
 for idx, name in enumerate(valid_scenario_names):
     row = idx // n_cols
@@ -351,81 +351,81 @@ for idx, name in enumerate(valid_scenario_names):
     if sim_start is None:
         sim_start = datetime.datetime(2020, 1, 1, 2, 0, 0)
 
-    # F+C 曲线 (先计算)
+    # F+C curve (compute first)
     bc_fc_raw = np.array(results_BC[name]['flooding'][1:]) + np.array(results_BC[name]['CSO'][1:])
 
-    # 以 FC 数据实际长度为统一基准
+    # Use the actual FC data length as the common reference
     fc_data_len = len(bc_fc_raw)
 
-    # 降雨数据对齐到 FC 长度
+    # Align rainfall data to the FC length
     if len(rain) > 0:
         rain_aligned = rain[:fc_data_len] if len(rain) >= fc_data_len else \
             np.pad(rain, (0, fc_data_len - len(rain)))
     else:
         rain_aligned = np.zeros(fc_data_len)
 
-    # 构建时间轴 (每5步聚合一次)
+    # Build the time axis (aggregate every 5 steps)
     fc_plot_idx = np.arange(0, fc_data_len, 5)
     n_agg = len(fc_plot_idx)
     dt_agg = [sim_start + datetime.timedelta(minutes=5 * 5 * i) for i in range(n_agg)]
 
-    bc_fc = bc_fc_raw[fc_plot_idx] / 1000  # 转换为 10^3 m^3
+    bc_fc = bc_fc_raw[fc_plot_idx] / 1000  # Convert to 10^3 m^3
 
-    # 计算最终 F+C 值
+    # Compute the final F+C values
     bc_final = bc_fc[-1]
 
-    # ---- 降雨柱状图 (右轴, 与results_rainfall_event.py完全一致: mm/hr) ----
+    # ---- Rainfall bars (right axis, same as results_rainfall_event.py: mm/hr) ----
     ax_rain = ax.twinx()
-    # 轴层级控制：确保主轴元素(曲线/legend)能覆盖双轴上的降雨bar
+    # Axis z-order: keep main-axis elements (curves/legend) above the rainfall bars on the twin axis
     ax_rain.set_zorder(0)
     ax.set_zorder(1)
-    ax.patch.set_visible(False)  # 隐藏主轴背景，否则会挡住降雨bar
+    ax.patch.set_visible(False)  # Hide the main axis background, otherwise it covers the rainfall bars
     rain_raw = scenario_rain_raw.get(name, ([], np.array([])))
     times_raw, mm_per_hr = rain_raw
     if len(mm_per_hr) > 0:
-        bar_width = 1 / 24  # 1小时宽度(与rainfall event一致,以天为单位)
+        bar_width = 1 / 24  # 1-hour bar width (in days, same as rainfall event)
         ax_rain.bar(times_raw, mm_per_hr, width=bar_width, color='steelblue',
                    edgecolor='navy', linewidth=0.3, alpha=0.4, zorder=1)
         ax_rain.set_ylabel('Rainfall\nintensity (mm/h)', fontsize=14, color='black')
         ax_rain.tick_params(axis='y', labelcolor='black', labelsize=13)
-        # 倒置Y轴：上方为0，往下越大
+        # Invert the Y axis: 0 at the top, larger values downward
         ax_rain.invert_yaxis()
-        # Y轴范围 (与rainfall event一致: max*1.45, 但倒置)
+        # Y range (same as rainfall event: max*1.45, but inverted)
         y_max_rain = mm_per_hr.max() if mm_per_hr.max() > 0 else 10
-        ax_rain.set_ylim(y_max_rain * 1.45, 0)  # 上方为0，下方是1.45倍最大值
+        ax_rain.set_ylim(y_max_rain * 1.45, 0)  # 0 at the top, 1.45 times the maximum at the bottom
 
     ax.set_xlim(dt_agg[0] - datetime.timedelta(hours=1),
                 dt_agg[-1] + datetime.timedelta(hours=1))
 
-    # 只显示最初、中间、结束三个时间节点
+    # Show only the first, middle and last time ticks
     n_ticks = len(dt_agg)
     tick_positions = [0, n_ticks // 2, n_ticks - 1]
     ax.set_xticks([dt_agg[i] for i in tick_positions])
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
 
-    # Y轴标签 (左轴: F+C)
+    # Y axis labels (left axis: F+C)
     ax.set_ylabel('Flooding and CSO\n(10³ m³)', fontsize=15)
     ax.tick_params(axis='both', labelsize=14)
 
-    # ---- 绘制 F+C 曲线 ----
-    # BC 曲线
+    # ---- Plot the F+C curves ----
+    # BC curve
     ax.plot(dt_agg, bc_fc, color=ccf['BC'], alpha=0.4, linewidth=2.0, zorder=5)
 
-    # MPC 曲线 (如果存在)
+    # MPC curve (if available)
     has_mpc = name in results_MPC
     if has_mpc:
         mpc_fc_raw = np.array(results_MPC[name]['flooding'][1:]) + np.array(results_MPC[name]['CSO'][1:])
         mpc_fc = mpc_fc_raw[fc_plot_idx] / 1000
         ax.plot(dt_agg, mpc_fc, color=ccf['MPC'], alpha=0.7, linewidth=2.0, zorder=5)
 
-    # AgenticAI-BC 曲线 (如果存在)
+    # AgenticAI-BC curve (if available)
     has_bcagent = name in results_BCAgent_Agentic
     if has_bcagent:
         bcag_fc_raw = np.array(results_BCAgent_Agentic[name]['flooding'][1:]) + np.array(results_BCAgent_Agentic[name]['CSO'][1:])
         bcag_fc = bcag_fc_raw[fc_plot_idx] / 1000
         ax.plot(dt_agg, bcag_fc, color=ccf['AgenticAI-BC'], alpha=0.6, linewidth=2.0, linestyle='--', zorder=5)
 
-    # ---- LLM Event 垂直线 (按results_rainfall_event.py方式: 追踪等级+区分取消) ----
+    # ---- LLM Event vertical lines (as in results_rainfall_event.py: track level + mark cancellations) ----
     if parse_warnings_file is not None:
         warnings_md_candidates = glob.glob(os.path.join(scenarios_dir, name, '*_warnings.md'))
         if warnings_md_candidates:
@@ -440,19 +440,19 @@ for idx, name in enumerate(valid_scenario_names):
                     ax.axvline(x=rec.publish_time, color=color,
                               linestyle=linestyle, linewidth=1.5, alpha=0.8)
 
-    # (legend 已移至图外统一绘制，见下方 fig.legend)
+    # (legend moved outside the axes and drawn uniformly with fig.legend below)
 
-    # 标题 (Event1, Event2, ...)
+    # Title (Event1, Event2, ...)
     short_title = f'Event{idx + 1}'
     ax.set_title(short_title, fontsize=16)
 
-# ---- 统一图例放在整个图的下方 (曲线 + 风险等级) ----
+# ---- Uniform legend below the whole figure (curves + risk levels) ----
 from matplotlib.lines import Line2D
 unified_handles = [
     Line2D([0], [0], color=ccf['BC'], linewidth=2.5, label='BC'),
 ]
 
-# 检查是否有任意子图包含 MPC 数据
+# Check whether any subplot contains MPC data
 any_mpc = any(name in results_MPC for name in valid_scenario_names)
 if any_mpc:
     unified_handles.append(
@@ -460,7 +460,7 @@ if any_mpc:
                label='MPC')
     )
 
-# 检查是否有任意子图包含 AgenticAI-BC 数据
+# Check whether any subplot contains AgenticAI-BC data
 any_bcagent = any(name in results_BCAgent_Agentic for name in valid_scenario_names)
 if any_bcagent:
     unified_handles.append(
@@ -472,10 +472,10 @@ fig.legend(handles=unified_handles, fontsize=18, loc='lower center',
             ncol=len(unified_handles), frameon=True, fancybox=True, framealpha=0.95,
             bbox_to_anchor=(0.5, 0.0))
 
-# 收紧底部边距，让legend更靠近图主体
+# Tighten the bottom margin to bring the legend closer to the plots
 fig.subplots_adjust(bottom=0.07)
 
-# 保存图片到 Results/FigControlperformance 文件夹
+# Save the figure to Results/FigControlperformance
 fig_dir = os.path.join(project_root, 'Results', 'FigControlperformance')
 os.makedirs(fig_dir, exist_ok=True)
 out_fig_path = os.path.join(fig_dir, 'FC_curve_vs_rainfall.png')
