@@ -1,0 +1,100 @@
+name: chaohu
+action_assets:
+- CC-S1
+- CC-S2
+- CC-R1
+- CC-R2
+- JK-S
+- JK-R1
+- JK-R2
+reward_targets:
+- !!python/tuple
+  - system
+  - flooding
+  - 1
+- !!python/tuple
+  - CC-1
+  - total_outflow
+  - 1
+- !!python/tuple
+  - CC-2
+  - total_outflow
+  - 1
+- !!python/tuple
+  - JK-1
+  - total_outflow
+  - 1
+- !!python/tuple
+  - JK-2
+  - total_outflow
+  - 1
+states:
+- !!python/tuple
+  - CC-storage
+  - depthN
+- !!python/tuple
+  - JK-storage
+  - depthN
+- !!python/tuple
+  - HS02004802
+  - depthN
+- !!python/tuple
+  - YS02001790
+  - depthN
+- !!python/tuple
+  - RG
+  - rainfall
+- !!python/tuple
+  - YS02001661
+  - depthN
+- !!python/tuple
+  - YS02001655
+  - depthN
+- !!python/tuple
+  - YS02001649
+  - depthN
+- !!python/tuple
+  - YS02001644
+  - depthN
+- !!python/tuple
+  - YS02001633
+  - depthN
+- !!python/tuple
+  - YS02001625
+  - depthN
+- !!python/tuple
+  - YS02001619
+  - depthN
+- !!python/tuple
+  - YS02001610
+  - depthN
+- !!python/tuple
+  - YS02001605
+  - depthN
+- !!python/tuple
+  - YS02001661YS02001658
+  - flow
+- !!python/tuple
+  - YS02001655YS02001652
+  - flow
+- !!python/tuple
+  - YS02001647YS02001649
+  - flow
+- !!python/tuple
+  - YS02001641YS02001644
+  - flow
+- !!python/tuple
+  - YS02001633YS02163601
+  - flow
+- !!python/tuple
+  - YS02001622YS02001625
+  - flow
+- !!python/tuple
+  - YS02001616YS02001619
+  - flow
+- !!python/tuple
+  - YS02001607YS02001610
+  - flow
+- !!python/tuple
+  - YS02001602YS02001605
+  - flow
