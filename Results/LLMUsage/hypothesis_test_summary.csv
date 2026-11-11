@@ -1,0 +1,14 @@
+检验类型,对比,统计量,p值,效应量(Kendall_W),显著性,结论
+Friedman,全局,7.7938,0.050471,0.2598,否,不拒绝H0
+Nemenyi,DeepSeek-v4-flash vs GLM-4-flash,,0.9544,0.3,否,
+Wilcoxon+Holm,DeepSeek-v4-flash vs GLM-4-flash,,1.0,,否,
+Nemenyi,DeepSeek-v4-flash vs Moonshot-v1-8k,,0.9544,0.3,否,
+Wilcoxon+Holm,DeepSeek-v4-flash vs Moonshot-v1-8k,,1.0,,否,
+Nemenyi,DeepSeek-v4-flash vs Minimax-M3,,0.1601,1.2,否,
+Wilcoxon+Holm,DeepSeek-v4-flash vs Minimax-M3,,0.0909,,否,
+Nemenyi,GLM-4-flash vs Moonshot-v1-8k,,0.7263,0.6,否,
+Wilcoxon+Holm,GLM-4-flash vs Moonshot-v1-8k,,1.0,,否,
+Nemenyi,GLM-4-flash vs Minimax-M3,,0.0463,1.5,是,
+Wilcoxon+Holm,GLM-4-flash vs Minimax-M3,,0.3223,,否,
+Nemenyi,Moonshot-v1-8k vs Minimax-M3,,0.4024,0.9,否,
+Wilcoxon+Holm,Moonshot-v1-8k vs Minimax-M3,,1.0,,否,

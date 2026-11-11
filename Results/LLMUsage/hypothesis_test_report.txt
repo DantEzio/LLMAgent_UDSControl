@@ -1,0 +1,55 @@
+================================================================================
+LLM 控制效果一致性假设检验报告
+生成时间: 2026-11-10 20:55:40
+================================================================================
+
+一、实验设计
+  设计类型: 随机化完全区组设计 (RCBD) / 重复测量
+  处理因子 (k): 4 个 LLM — DeepSeek-v4-flash, GLM-4-flash, Moonshot-v1-8k, Minimax-M3
+  区组因子 (n): 10 场降雨事件
+  响应变量: 绝对 F+C 值 (flooding[-1] + CSO[-1], m³)
+  显著性水平 α: 0.05
+
+二、描述统计
+  DeepSeek-v4-flash: 均值=26391.91, 中位数=25798.23, 标准差=18334.03, 范围=[4844.19, 64208.53]
+  GLM-4-flash: 均值=26537.3, 中位数=24865.86, 标准差=20994.36, 范围=[3502.11, 71463.49]
+  Moonshot-v1-8k: 均值=26826.4, 中位数=27667.17, 标准差=18233.95, 范围=[4672.68, 62997.43]
+  Minimax-M3: 均值=28527.04, 中位数=26970.22, 标准差=19031.38, 范围=[5205.42, 64208.53]
+
+三、正态性检验 (Shapiro-Wilk, 残差)
+  W = 0.8957, p = 0.0014
+  残差正态性: 不满足
+  注: 小样本下正态性仅供参考, 主检验使用非参数 Friedman
+
+四、主检验: Friedman χ²
+  H0: 4 个 LLM 的控制效果分布相同
+  χ² = 7.7938
+  p 值 = 0.050471
+  Kendall's W (效应量) = 0.2598
+  结论: 不能拒绝 H0 — 4 个 LLM 控制效果无显著差异
+
+五、平均秩 (rank 1 = F+C 最低 = 最优)
+  DeepSeek-v4-flash: 2.20
+  GLM-4-flash: 1.90
+  Moonshot-v1-8k: 2.50
+  Minimax-M3: 3.40
+
+六、事后检验: Nemenyi
+  临界差异 CD = 1.4832
+  校正后 p 值矩阵:
+    DeepSeek-v4-flash vs GLM-4-flash: p=0.9544, 秩差=0.30, 不显著
+    DeepSeek-v4-flash vs Moonshot-v1-8k: p=0.9544, 秩差=0.30, 不显著
+    DeepSeek-v4-flash vs Minimax-M3: p=0.1601, 秩差=1.20, 不显著
+    GLM-4-flash vs Moonshot-v1-8k: p=0.7263, 秩差=0.60, 不显著
+    GLM-4-flash vs Minimax-M3: p=0.0463, 秩差=1.50, 显著
+    Moonshot-v1-8k vs Minimax-M3: p=0.4024, 秩差=0.90, 不显著
+
+七、稳健性补充: Wilcoxon 符号秩 + Holm 校正
+  DeepSeek-v4-flash vs GLM-4-flash: p_adj=1.0000, 不显著
+  DeepSeek-v4-flash vs Moonshot-v1-8k: p_adj=1.0000, 不显著
+  DeepSeek-v4-flash vs Minimax-M3: p_adj=0.0909, 不显著
+  GLM-4-flash vs Moonshot-v1-8k: p_adj=1.0000, 不显著
+  GLM-4-flash vs Minimax-M3: p_adj=0.3223, 不显著
+  Moonshot-v1-8k vs Minimax-M3: p_adj=1.0000, 不显著
+
+================================================================================
