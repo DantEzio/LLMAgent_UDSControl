@@ -17,9 +17,8 @@ action.
 | Method | Description | Implementation |
 |---|---|---|
 | BC (baseline) | Per-pump hysteresis water-level thresholds, no prediction or learning | `DRL-control/BC/BC.py`, `step1-BC-control/main_BCtest.py` |
-| MPC | Receding-horizon control; PSO optimizes the next `Np` pump actions on SWMM predictions | `step2-MPC-control-best/main_MPCtest.py`, `pso.py` |
+| MPC | Receding-horizon control; | `step2-MPC-control-best/main_MPCtest.py`, `pso.py` |
 | AgenticAI-BC | BC + event-driven LLM adjustment with periodic refresh and timing validation | `step3-BCAgent-control/` (and `-GLM`, `-Kimi`, `-MiniMax` variants) |
-| PPO / DirectAgent | Referenced by some result scripts but training code is **not included** in this snapshot | — |
 
 All methods are evaluated with the same events, SWMM model and control step.
 
@@ -153,7 +152,6 @@ python step4-uncertainty/run_uncertainty.py --experiment {all,baseline,synonym,s
 |---|---|
 | `results_FC.py` | `Results/FigControlperformance/FC_curve_vs_rainfall.png`, `Results/table_FC_NMC.csv` |
 | `results_FC_full.py` | `FC_curve_vs_rainfall_full.png`, `Results/table_FC_NMC_full.csv` |
-| `results_FC_perfectMPCPPO.py` | `FC_curve_vs_rainfall_perfectcompare.png`, `table_FC_NMC_perfectcompare.csv` |
 | `results_varLLM.py` | `varLLM_FC_curve_vs_rainfall.png`, `Results/table_FC_varLLM.csv` |
 | `results_Action_total.py` | `Results/FigPerformanceAction/FigAction/FigAction.png` |
 | `results_FC_Action_per_event.py` | `Results/FigPerformanceAction/FC_Action_E4-10.png` |
@@ -219,9 +217,6 @@ variation, and produces comparison figures.
 
 ## Important notes
 
-- This snapshot contains the control and evaluation code. PPO training code and
-  `step2-DRL-control*` / `step3-Agent-control` directories referenced by some result scripts
-  are not included; those curves are skipped when the data is missing.
 - `Scenarios/process_events.py` and `Scenarios/fix_event_rainfall.py` contain hardcoded
   absolute Windows paths. Update them to your local project path before running.
 - The SWMM DLL cannot load non-ASCII paths, so temporary INP files are named by index and
