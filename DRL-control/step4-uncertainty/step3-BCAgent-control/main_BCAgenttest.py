@@ -1412,7 +1412,7 @@ if ENABLE_LLM_ADJUSTMENT:
     
     # LLM Action Advisor (prompt + DeepSeek API call)
     _llm_advisor = LLMActionAdvisor(
-        api_key="sk-e5396bd7239e4b22a496020f3d72bd1e",
+        api_key="[Your LLM API]",
         base_url="https://api.deepseek.com",
         model="deepseek-v4-flash",
     )

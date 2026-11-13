@@ -1378,7 +1378,7 @@ if ENABLE_LLM_ADJUSTMENT:
     
     # LLM Action Advisor (prompt + GLM API call)
     _llm_advisor = LLMActionAdvisor(
-        api_key="83a60473a10c488d947d2d0a8e2505bd.OvMFuALVenv6aAFw",
+        api_key="[Your LLM API]",
         base_url="https://open.bigmodel.cn/api/paas/v4/",
         model="glm-4-flash",
     )

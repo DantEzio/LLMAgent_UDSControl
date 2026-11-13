@@ -1378,7 +1378,7 @@ if ENABLE_LLM_ADJUSTMENT:
     
     # LLM Action Advisor (prompt + MiniMax API call)
     _llm_advisor = LLMActionAdvisor(
-        api_key="sk-api-RVWy4cv9a-EY8AeXI7Ot8VYgqA0IkWDbs9Fm809y5ICb_DvSAKI_XFt_x1VOpmsxD0V2cm-usjKTqwMF8BP5F3AwbJy602nNdUyO-DPIiILkgGx5rDpFPYA",
+        api_key="[Your LLM API]",
         base_url="https://api.minimaxi.com/v1",
         model="MiniMax-M3",
     )

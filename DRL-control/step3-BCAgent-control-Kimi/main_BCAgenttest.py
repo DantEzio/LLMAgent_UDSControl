@@ -1378,7 +1378,7 @@ if ENABLE_LLM_ADJUSTMENT:
     
     # LLM Action Advisor (prompt + Kimi API call)
     _llm_advisor = LLMActionAdvisor(
-        api_key="sk-JCOXqsSpWTwcJ6j3xed1OMZHKBiXJbmAjUGeX29dUxrJxUjy",
+        api_key="[Your LLM API]",
         base_url="https://api.moonshot.cn/v1",
         model="moonshot-v1-8k",
     )

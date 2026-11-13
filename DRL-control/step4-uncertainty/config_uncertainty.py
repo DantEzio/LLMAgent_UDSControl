@@ -51,25 +51,25 @@ STEP3_RESULT_PREFIX = 'bc_agent_results_'
 # ============================================================
 LLM_BACKENDS = {
     'DeepSeek': {
-        'api_key': 'sk-e5396bd7239e4b22a496020f3d72bd1e',
+        'api_key': '[Your LLM API]',
         'base_url': 'https://api.deepseek.com',
         'model': 'deepseek-v4-flash',
         'use_reasoning': True,   # DeepSeek uses reasoning_effort + thinking
     },
     'GLM': {
-        'api_key': '83a60473a10c488d947d2d0a8e2505bd.OvMFuALVenv6aAFw',
+        'api_key': '[Your LLM API]',
         'base_url': 'https://open.bigmodel.cn/api/paas/v4/',
         'model': 'glm-4-flash',
         'use_reasoning': False,
     },
     'Kimi': {
-        'api_key': 'sk-JCOXqsSpWTwcJ6j3xed1OMZHKBiXJbmAjUGeX29dUxrJxUjy',
+        'api_key': '[Your LLM API]',
         'base_url': 'https://api.moonshot.cn/v1',
         'model': 'moonshot-v1-8k',
         'use_reasoning': False,
     },
     'MiniMax': {
-        'api_key': 'sk-api-RVWy4cv9a-EY8AeXI7Ot8VYgqA0IkWDbs9Fm809y5ICb_DvSAKI_XFt_x1VOpmsxD0V2cm-usjKTqwMF8BP5F3AwbJy602nNdUyO-DPIiILkgGx5rDpFPYA',
+        'api_key': '[Your LLM API]',
         'base_url': 'https://api.minimaxi.com/v1',
         'model': 'MiniMax-M3',
         'use_reasoning': False,
